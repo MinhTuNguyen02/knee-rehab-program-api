@@ -5,15 +5,35 @@ export class User {
     @PrimaryGeneratedColumn('uuid')
     id: string;
 
-    @Column({ unique: true })
+    @Column({
+        type: 'varchar',
+        unique: true,
+    })
     email: string;
 
-    @Column({ name: 'password_hash' })
+    @Column({
+        name: 'password_hash',
+        type: 'varchar',
+    })
     passwordHash: string;
 
-    @Column({ default: 'admin' })
+    @Column({
+        type: 'varchar',
+        default: 'admin',
+    })
     role: string;
 
-    @CreateDateColumn({ name: 'created_at' })
-    createdAt: Date;
+    @Column({
+        name: 'reset_token',
+        type: 'varchar',
+        nullable: true,
+    })
+    resetToken: string | null;
+
+    @Column({
+        name: 'reset_token_expiry',
+        type: 'timestamptz',
+        nullable: true,
+    })
+    resetTokenExpiry: Date | null;
 }

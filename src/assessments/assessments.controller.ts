@@ -15,8 +15,8 @@ export class AssessmentsController {
     }
 
     @Get()
-    // @Roles('admin')
-    // @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin')
+    @UseGuards(JwtAuthGuard, RolesGuard)
     findAll(
         @Query('page') page?: string,
         @Query('limit') limit?: string,
@@ -32,8 +32,8 @@ export class AssessmentsController {
     }
 
     @Get(':id')
-    // @Roles('admin')
-    // @UseGuards(JwtAuthGuard, RolesGuard)
+    @Roles('admin')
+    @UseGuards(JwtAuthGuard, RolesGuard)
     findOne(@Param('id') id: string) {
         return this.assessmentsService.findOne(id);
     }

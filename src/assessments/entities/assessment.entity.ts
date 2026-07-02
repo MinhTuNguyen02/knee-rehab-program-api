@@ -20,7 +20,7 @@ export class Assessment {
     score: number;
 
     @Column({ length: 10 })
-    zone: string; // 'green' | 'amber' | 'red'
+    zone: string;
 
     @Column({ type: 'varchar', nullable: true, default: 'web app' })
     source: string | null;

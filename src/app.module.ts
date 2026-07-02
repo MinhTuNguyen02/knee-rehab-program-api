@@ -6,6 +6,7 @@ import { AppService } from './app.service';
 import { AssessmentsModule } from './assessments/assessments.module';
 import { AuthModule } from './auth/auth.module';
 import { LeadsModule } from './leads/leads.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { LeadsModule } from './leads/leads.module';
     AssessmentsModule,
     AuthModule,
     LeadsModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],

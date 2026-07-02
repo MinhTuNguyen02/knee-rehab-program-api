@@ -7,6 +7,10 @@ import { User } from './entities/user.entity';
 import { RegisterDto } from './dto/register.dto';
 import { LoginDto } from './dto/login.dto';
 import { ConfigService } from '@nestjs/config';
+import { ChangePasswordDto } from './dto/change-password.dto';
+import { ForgotPasswordDto } from './dto/forgot-password.dto';
+import { ResetPasswordDto } from './dto/reset-password.dto';
+import * as crypto from 'crypto';
 
 @Injectable()
 export class AuthService {
@@ -71,5 +75,55 @@ export class AuthService {
             email: user.email,
             role: user.role,
         };
+    }
+
+    async changePassword(userId: string, dto: ChangePasswordDto): Promise<{ message: string }> {
+        const user = await this.userRepository.findOneBy({ id: userId });
+        if (!user) {
+            throw new UnauthorizedException('User not found');
+        }
+
+        const isPasswordValid = await bcrypt.compare(dto.currentPassword, user.passwordHash);
+        if (!isPasswordValid) {
+            throw new BadRequestException('Incorrect current password');
+        }
+
+        user.passwordHash = await bcrypt.hash(dto.newPassword, 10);
+        await this.userRepository.save(user);
+
+        return { message: 'Password changed successfully' };
+    }
+
+    async forgotPassword(dto: ForgotPasswordDto): Promise<{ resetToken: string; message: string }> {
+        const user = await this.userRepository.findOneBy({ email: dto.email.toLowerCase() });
+        if (!user) {
+            throw new BadRequestException('If a user with this email exists, a reset token has been generated');
+        }
+
+        const token = crypto.randomUUID();
+        user.resetToken = token;
+        user.resetTokenExpiry = new Date(Date.now() + 3600 * 1000); // 1 hour expiry
+
+        await this.userRepository.save(user);
+
+        return {
+            resetToken: token,
+            message: 'Password reset token generated successfully. Use this token to reset your password.',
+        };
+    }
+
+    async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
+        const user = await this.userRepository.findOneBy({ resetToken: dto.token });
+        if (!user || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
+            throw new BadRequestException('Invalid or expired token');
+        }
+
+        user.passwordHash = await bcrypt.hash(dto.newPassword, 10);
+        user.resetToken = null;
+        user.resetTokenExpiry = null;
+
+        await this.userRepository.save(user);
+
+        return { message: 'Password reset successfully' };
     }
 }
