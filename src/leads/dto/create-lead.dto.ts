@@ -25,7 +25,7 @@ export class CreateLeadDto {
     @IsNotEmpty()
     gender: string;
 
-    @IsEnum(['L', 'R'], { message: 'Knee side must be L or R' })
+    @IsEnum(['L', 'R', 'B', 'both'], { message: 'Knee side must be L, R, B or both' })
     kneeSide: string;
 
     @IsBoolean()

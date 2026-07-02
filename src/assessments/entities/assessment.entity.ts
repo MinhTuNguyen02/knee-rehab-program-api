@@ -32,7 +32,7 @@ export class Assessment {
     @JoinColumn({ name: 'patient_id' })
     patient: Patient | null;
 
-    @Column({ type: 'varchar', nullable: true })
+    @Column({ name: 'patient_id', type: 'uuid', nullable: true })
     patientId: string | null;
 
     @CreateDateColumn()
