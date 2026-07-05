@@ -41,7 +41,8 @@ export class AssessmentsService {
         const limit = query.limit && query.limit > 0 ? query.limit : 20;
         const skip = (page - 1) * limit;
 
-        const queryBuilder = this.assessmentRepository.createQueryBuilder('assessment');
+        const queryBuilder = this.assessmentRepository.createQueryBuilder('assessment')
+            .leftJoinAndSelect('assessment.patient', 'patient');
 
         if (query.zone) {
             queryBuilder.andWhere('assessment.zone = :zone', { zone: query.zone });
