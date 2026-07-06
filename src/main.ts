@@ -7,7 +7,15 @@ async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
   // Enable CORS for frontend applications
-  app.enableCors();
+  app.enableCors({
+    origin: [
+      'http://localhost:3000',
+      'http://localhost:3002',
+      'https://knee-rehab-program-assess.onrender.com',
+      'https://knee-rehab-program-portal.onrender.com'
+    ],
+    credentials: true,
+  });
 
   // Enable global validation pipe for DTO validation
   app.useGlobalPipes(
