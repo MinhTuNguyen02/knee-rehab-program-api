@@ -16,20 +16,34 @@ export class LeadsService {
 
     // 1. POST /leads - Submit opt-in form
     async create(dto: CreateLeadDto): Promise<Patient> {
-        // Create the patient record
-        const newPatient = this.patientRepository.create({
-            firstName: dto.firstName,
-            lastName: dto.lastName,
-            email: dto.email.toLowerCase(),
-            mobile: dto.mobile,
-            age: dto.age,
-            gender: dto.gender,
-            kneeSide: dto.kneeSide,
-            consentAccepted: dto.consentAccepted,
-            notificationPrefs: dto.notificationPrefs || null,
-        });
+        let savedPatient = await this.patientRepository.findOneBy({ email: dto.email.toLowerCase() });
 
-        const savedPatient = await this.patientRepository.save(newPatient);
+        if (savedPatient) {
+            savedPatient.firstName = dto.firstName;
+            savedPatient.lastName = dto.lastName;
+            savedPatient.mobile = dto.mobile;
+            savedPatient.age = dto.age;
+            savedPatient.gender = dto.gender;
+            savedPatient.kneeSide = dto.kneeSide;
+            savedPatient.consentAccepted = dto.consentAccepted;
+            if (dto.notificationPrefs) {
+                savedPatient.notificationPrefs = dto.notificationPrefs;
+            }
+            savedPatient = await this.patientRepository.save(savedPatient);
+        } else {
+            const newPatient = this.patientRepository.create({
+                firstName: dto.firstName,
+                lastName: dto.lastName,
+                email: dto.email.toLowerCase(),
+                mobile: dto.mobile,
+                age: dto.age,
+                gender: dto.gender,
+                kneeSide: dto.kneeSide,
+                consentAccepted: dto.consentAccepted,
+                notificationPrefs: dto.notificationPrefs || null,
+            });
+            savedPatient = await this.patientRepository.save(newPatient);
+        }
 
         // Link with assessment if assessmentId is provided
         if (dto.assessmentId) {

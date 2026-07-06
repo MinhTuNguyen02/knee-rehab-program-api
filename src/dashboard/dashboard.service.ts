@@ -29,25 +29,7 @@ export class DashboardService {
       select: ['createdAt']
     });
 
-    const submissionsOverTimeMap = new Map<string, number>();
-    for (let i = 6; i >= 0; i--) {
-      const d = new Date();
-      d.setDate(d.getDate() - i);
-      const dateStr = d.toISOString().split('T')[0];
-      submissionsOverTimeMap.set(dateStr, 0);
-    }
-
-    recentAssessments.forEach(a => {
-      const dateStr = new Date(a.createdAt).toISOString().split('T')[0];
-      if (submissionsOverTimeMap.has(dateStr)) {
-        submissionsOverTimeMap.set(dateStr, submissionsOverTimeMap.get(dateStr)! + 1);
-      }
-    });
-
-    const submissionsOverTime = Array.from(submissionsOverTimeMap.entries()).map(([date, count]) => ({
-      date,
-      count
-    }));
+    const recentTimestamps = recentAssessments.map(a => a.createdAt);
 
     return {
       totalSubmissions,
@@ -57,7 +39,7 @@ export class DashboardService {
         amber,
         red,
       },
-      submissionsOverTime,
+      recentTimestamps,
     };
   }
 }
