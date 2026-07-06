@@ -22,7 +22,7 @@ export class AuthService {
         private jwtService: JwtService,
         private configService: ConfigService,
     ) {
-        this.allowedDomain = this.configService.get<string>('ALLOWED_ADMIN_DOMAIN') || 'rehab.com';
+        this.allowedDomain = this.configService.get<string>('ALLOWED_ADMIN_DOMAIN') || 'krps.com';
     }
 
     private validateEmailDomain(email: string) {

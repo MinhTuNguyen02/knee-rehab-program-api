@@ -22,7 +22,7 @@ export class Assessment {
     @Column({ length: 10 })
     zone: string;
 
-    @Column({ type: 'varchar', nullable: true, default: 'web app' })
+    @Column({ type: 'varchar', nullable: true, default: 'Website' })
     source: string | null;
 
     @Column({ default: 'assessment' })

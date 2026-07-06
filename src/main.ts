@@ -6,14 +6,13 @@ import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
 
+  const allowedOrigins = process.env.ALLOWED_ORIGINS 
+    ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim())
+    : [];
+
   // Enable CORS for frontend applications
   app.enableCors({
-    origin: [
-      'http://localhost:3000',
-      'http://localhost:3002',
-      'https://knee-rehab-program-assess.onrender.com',
-      'https://knee-rehab-program-portal.onrender.com'
-    ],
+    origin: allowedOrigins,
     credentials: true,
   });
 
