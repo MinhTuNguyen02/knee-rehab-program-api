@@ -2,6 +2,9 @@ import { NestFactory } from '@nestjs/core';
 import { AppModule } from './app.module';
 import { ValidationPipe } from '@nestjs/common';
 import { DocumentBuilder, SwaggerModule } from '@nestjs/swagger';
+import helmet from 'helmet';
+import compression from 'compression';
+import { AllExceptionsFilter } from './common/filters/all-exceptions.filter';
 
 async function bootstrap() {
   const app = await NestFactory.create(AppModule);
@@ -16,6 +19,12 @@ async function bootstrap() {
     credentials: true,
   });
 
+  // Apply security headers
+  app.use(helmet());
+
+  // Apply gzip compression
+  app.use(compression());
+
   // Enable global validation pipe for DTO validation
   app.useGlobalPipes(
     new ValidationPipe({
@@ -23,6 +32,9 @@ async function bootstrap() {
       transform: true,
     }),
   );
+
+  // Enable global exception filter
+  app.useGlobalFilters(new AllExceptionsFilter());
 
   const config = new DocumentBuilder()
     .setTitle('KRPS API')
