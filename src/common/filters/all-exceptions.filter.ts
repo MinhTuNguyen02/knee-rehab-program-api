@@ -32,11 +32,22 @@ export class AllExceptionsFilter implements ExceptionFilter {
       exception instanceof Error ? exception.stack : '',
     );
 
+    // Determine error code based on status
+    let code = 'INTERNAL_SERVER_ERROR';
+    if (status === HttpStatus.BAD_REQUEST) code = 'BAD_REQUEST';
+    else if (status === HttpStatus.UNAUTHORIZED) code = 'UNAUTHORIZED';
+    else if (status === HttpStatus.FORBIDDEN) code = 'FORBIDDEN';
+    else if (status === HttpStatus.NOT_FOUND) code = 'NOT_FOUND';
+    else if (status === HttpStatus.CONFLICT) code = 'CONFLICT';
+    else if (status === HttpStatus.TOO_MANY_REQUESTS) code = 'RATE_LIMIT_EXCEEDED';
+
+    const errorMessage = typeof message === 'string' ? message : (message as any).message || message;
+
     response.status(status).json({
-      statusCode: status,
-      timestamp: new Date().toISOString(),
-      path: request.url,
-      message: typeof message === 'string' ? message : (message as any).message || message,
+      error: {
+        code,
+        message: Array.isArray(errorMessage) ? errorMessage.join(', ') : errorMessage,
+      }
     });
   }
 }

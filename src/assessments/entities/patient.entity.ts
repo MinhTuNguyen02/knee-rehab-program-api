@@ -33,9 +33,46 @@ export class Patient {
     @Column({ type: 'jsonb', nullable: true })
     notificationPrefs: Record<string, any> | null;
 
+    // --- Patient Portal Auth Fields ---
+    @Column({
+        name: 'password_hash',
+        type: 'varchar',
+        nullable: true,
+        select: false,
+    })
+    passwordHash: string | null;
+
+    @Column({
+        name: 'force_password_change',
+        default: false,
+    })
+    forcePasswordChange: boolean;
+
+    @Column({
+        name: 'reset_token',
+        type: 'varchar',
+        nullable: true,
+    })
+    resetToken: string | null;
+
+    @Column({
+        name: 'reset_token_expiry',
+        type: 'timestamptz',
+        nullable: true,
+    })
+    resetTokenExpiry: Date | null;
+
+    @Column({
+        name: 'fcm_token',
+        type: 'varchar',
+        nullable: true,
+    })
+    fcmToken: string | null;
+
     @OneToMany(() => Assessment, (assessment) => assessment.patient)
     assessments: Assessment[];
 
     @CreateDateColumn()
     createdAt: Date;
 }
+

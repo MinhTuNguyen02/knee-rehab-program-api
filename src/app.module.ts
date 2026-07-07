@@ -7,6 +7,8 @@ import { AssessmentsModule } from './assessments/assessments.module';
 import { AuthModule } from './auth/auth.module';
 import { LeadsModule } from './leads/leads.module';
 import { DashboardModule } from './dashboard/dashboard.module';
+import { PatientAuthModule } from './patient-auth/patient-auth.module';
+import { PatientDataModule } from './patient-data/patient-data.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { MailerModule } from '@nestjs-modules/mailer';
 
@@ -51,6 +53,8 @@ import { MailerModule } from '@nestjs-modules/mailer';
     AuthModule,
     LeadsModule,
     DashboardModule,
+    PatientAuthModule,
+    PatientDataModule,
   ],
   controllers: [AppController],
   providers: [AppService],
