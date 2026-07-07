@@ -11,6 +11,7 @@ import { ChangePasswordDto } from './dto/change-password.dto';
 import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import * as crypto from 'crypto';
+import { MailerService } from '@nestjs-modules/mailer';
 
 @Injectable()
 export class AuthService {
@@ -21,6 +22,7 @@ export class AuthService {
         private userRepository: Repository<User>,
         private jwtService: JwtService,
         private configService: ConfigService,
+        private mailerService: MailerService,
     ) {
         this.allowedDomain = this.configService.get<string>('ALLOWED_ADMIN_DOMAIN') || 'krps.com';
     }
@@ -97,7 +99,10 @@ export class AuthService {
     async forgotPassword(dto: ForgotPasswordDto): Promise<{ resetToken: string; message: string }> {
         const user = await this.userRepository.findOneBy({ email: dto.email.toLowerCase() });
         if (!user) {
-            throw new BadRequestException('If a user with this email exists, a reset token has been generated');
+            return {
+                resetToken: '', // Return empty for non-existent users
+                message: 'If a user with this email exists, a reset token has been generated',
+            };
         }
 
         const token = crypto.randomUUID();
@@ -106,9 +111,32 @@ export class AuthService {
 
         await this.userRepository.save(user);
 
+        // Construct reset link
+        const resetLink = `http://localhost:3002/reset-password?token=${token}`;
+
+        // Attempt to send email
+        const smtpHost = this.configService.get<string>('SMTP_HOST');
+        if (smtpHost) {
+            try {
+                await this.mailerService.sendMail({
+                    to: user.email,
+                    subject: 'Password Reset Request',
+                    text: `You requested a password reset. Click here to reset your password: ${resetLink}`,
+                    html: `<p>You requested a password reset. Click <a href="${resetLink}">here</a> to reset your password.</p>`,
+                });
+            } catch (error) {
+                console.error('Failed to send email, logging link instead:', resetLink);
+                // Also log the actual error for debugging
+                console.error(error);
+            }
+        } else {
+            console.log('No SMTP configured. Logging link instead:', resetLink);
+        }
+
+        // We return success even if email failed or user didn't exist
         return {
-            resetToken: token,
-            message: 'Password reset token generated successfully. Use this token to reset your password.',
+            resetToken: token, // Returning token for easy testing if SMTP fails
+            message: 'If a user with this email exists, a reset token has been generated',
         };
     }
 
