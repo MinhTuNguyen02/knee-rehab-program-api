@@ -7,6 +7,8 @@ import { AuthService } from './auth.service';
 import { AuthController } from './auth.controller';
 import { User } from './entities/user.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { EmailThrottlerGuard } from './guards/email-throttler.guard';
 
 @Module({
   imports: [
@@ -26,8 +28,12 @@ import { JwtStrategy } from './strategies/jwt.strategy';
         };
       },
     }),
+    ThrottlerModule.forRoot([{
+      ttl: 60000,
+      limit: 10,
+    }]),
   ],
-  providers: [AuthService, JwtStrategy],
+  providers: [AuthService, JwtStrategy, EmailThrottlerGuard],
   controllers: [AuthController],
   exports: [AuthService, PassportModule, JwtStrategy],
 })

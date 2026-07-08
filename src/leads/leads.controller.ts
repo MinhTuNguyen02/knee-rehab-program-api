@@ -23,17 +23,20 @@ export class LeadsController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get all leads' })
-    @ApiQuery({ name: 'page', required: false })
+    @ApiQuery({ name: 'after', required: false, description: 'Cursor for next page' })
+    @ApiQuery({ name: 'before', required: false, description: 'Cursor for previous page' })
     @ApiQuery({ name: 'limit', required: false })
     @ApiQuery({ name: 'zone', required: false })
     @ApiResponse({ status: 200, description: 'Return all leads.' })
     findAll(
-        @Query('page') page?: string,
+        @Query('after') after?: string,
+        @Query('before') before?: string,
         @Query('limit') limit?: string,
         @Query('zone') zone?: string,
     ) {
         return this.leadsService.findAll({
-            page: page ? parseInt(page, 10) : undefined,
+            after,
+            before,
             limit: limit ? parseInt(limit, 10) : undefined,
             zone,
         });

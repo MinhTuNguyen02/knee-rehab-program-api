@@ -7,6 +7,8 @@ import { ForgotPasswordDto } from './dto/forgot-password.dto';
 import { ResetPasswordDto } from './dto/reset-password.dto';
 import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
+import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
+import { EmailThrottlerGuard } from './guards/email-throttler.guard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -20,6 +22,8 @@ export class AuthController {
         return this.authService.register(dto);
     }
 
+    @UseGuards(ThrottlerGuard)
+    @Throttle({ default: { limit: 5, ttl: 60000 } })
     @Post('login')
     @ApiOperation({ summary: 'Login a user' })
     @ApiResponse({ status: 200, description: 'User successfully logged in.' })
@@ -36,6 +40,8 @@ export class AuthController {
         return this.authService.changePassword(req.user.id, dto);
     }
 
+    @UseGuards(EmailThrottlerGuard)
+    @Throttle({ default: { limit: 3, ttl: 900000 } })
     @Post('forgot-password')
     @ApiOperation({ summary: 'Forgot password' })
     @ApiResponse({ status: 200, description: 'Password reset link sent.' })

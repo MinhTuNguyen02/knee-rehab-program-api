@@ -8,6 +8,8 @@ import { PatientAuthController } from './patient-auth.controller';
 import { PatientJwtStrategy } from './strategies/patient-jwt.strategy';
 import { PatientJwtAuthGuard } from './guards/patient-jwt-auth.guard';
 import { Patient } from '../assessments/entities/patient.entity';
+import { ThrottlerModule } from '@nestjs/throttler';
+import { EmailThrottlerGuard } from './guards/email-throttler.guard';
 
 @Module({
     imports: [
@@ -23,14 +25,17 @@ import { Patient } from '../assessments/entities/patient.entity';
                 }
                 return {
                     secret,
-                    // Default expiry — sẽ bị override khi sign với expiresIn: '7d'
                     signOptions: { expiresIn: '7d' },
                 };
             },
         }),
+        ThrottlerModule.forRoot([{
+            ttl: 60000,
+            limit: 10,
+        }]),
     ],
-    providers: [PatientAuthService, PatientJwtStrategy, PatientJwtAuthGuard],
+    providers: [PatientAuthService, PatientJwtStrategy, PatientJwtAuthGuard, EmailThrottlerGuard],
     controllers: [PatientAuthController],
     exports: [PatientAuthService, PatientJwtStrategy, PatientJwtAuthGuard],
 })
-export class PatientAuthModule {}
+export class PatientAuthModule { }

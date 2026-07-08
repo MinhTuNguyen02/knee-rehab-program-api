@@ -100,7 +100,7 @@ export class AuthService {
         const user = await this.userRepository.findOneBy({ email: dto.email.toLowerCase() });
         if (!user) {
             return {
-                resetToken: '', // Return empty for non-existent users
+                resetToken: '',
                 message: 'If a user with this email exists, a reset token has been generated',
             };
         }
@@ -126,7 +126,6 @@ export class AuthService {
                 });
             } catch (error) {
                 console.error('Failed to send email, logging link instead:', resetLink);
-                // Also log the actual error for debugging
                 console.error(error);
             }
         } else {
@@ -135,7 +134,7 @@ export class AuthService {
 
         // We return success even if email failed or user didn't exist
         return {
-            resetToken: token, // Returning token for easy testing if SMTP fails
+            resetToken: token,
             message: 'If a user with this email exists, a reset token has been generated',
         };
     }

@@ -89,12 +89,11 @@ export class PatientAuthService {
             email: dto.email.toLowerCase(),
         });
 
-        // Do not confirm if email exists or not (prevent enumeration attack)
         if (!patient) {
             return { data: { message: 'If an account with this email exists, a reset link has been sent.' } };
         }
 
-        // Create plain token to send via email, store SHA-256 hash in DB
+        // Create plain token to send via email
         const plainToken = crypto.randomBytes(32).toString('hex');
         const hashedToken = crypto.createHash('sha256').update(plainToken).digest('hex');
 
@@ -155,7 +154,7 @@ export class PatientAuthService {
         return { data: { message: 'Password has been reset successfully.' } };
     }
 
-    //  POST /patient-auth/change-password (Protected)
+    //  POST /patient-auth/change-password
     async changePassword(
         patientId: string,
         dto: PatientChangePasswordDto,
@@ -192,7 +191,7 @@ export class PatientAuthService {
         return { data: { message: 'Password changed successfully.' } };
     }
 
-    //  POST /patient/fcm-token (Protected)
+    //  POST /patient/fcm-token
     async saveFcmToken(
         patientId: string,
         fcmToken: string,
@@ -201,7 +200,7 @@ export class PatientAuthService {
         return { data: { message: 'FCM token saved.' } };
     }
 
-    // Helper: generate patient account from opt-in (used by LeadsService)
+    // Helper: generate patient account from opt-in
     static generateTempPassword(): string {
         // Temp password: 8 chars, ensures uppercase, number, lowercase
         const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';

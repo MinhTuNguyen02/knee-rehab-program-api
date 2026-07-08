@@ -18,11 +18,9 @@ export class PatientDataService {
         private patientRepository: Repository<Patient>,
         @InjectRepository(Assessment)
         private assessmentRepository: Repository<Assessment>,
-    ) {}
+    ) { }
 
-    // ─────────────────────────────────────────────
     //  GET /patient/me
-    // ─────────────────────────────────────────────
     async getMe(patientId: string) {
         const patient = await this.patientRepository.findOne({
             where: { id: patientId },
@@ -54,21 +52,19 @@ export class PatientDataService {
                 createdAt: patient.createdAt,
                 latestAssessment: latestAssessment
                     ? {
-                          id: latestAssessment.id,
-                          score: latestAssessment.score,
-                          zone: latestAssessment.zone,
-                          pain: latestAssessment.pain,
-                          functionScore: latestAssessment.functionScore,
-                          createdAt: latestAssessment.createdAt,
-                      }
+                        id: latestAssessment.id,
+                        score: latestAssessment.score,
+                        zone: latestAssessment.zone,
+                        pain: latestAssessment.pain,
+                        functionScore: latestAssessment.functionScore,
+                        createdAt: latestAssessment.createdAt,
+                    }
                     : null,
             },
         };
     }
 
-    // ─────────────────────────────────────────────
     //  PATCH /patient/me
-    // ─────────────────────────────────────────────
     async updateMe(patientId: string, dto: UpdatePatientDto) {
         const patient = await this.patientRepository.findOne({
             where: { id: patientId },
@@ -99,9 +95,7 @@ export class PatientDataService {
         };
     }
 
-    // ─────────────────────────────────────────────
     //  GET /patient/assessments (cursor-based pagination)
-    // ─────────────────────────────────────────────
     async getAssessments(patientId: string, query: AssessmentQueryDto) {
         const limit = query.limit ?? 10;
 
@@ -143,9 +137,7 @@ export class PatientDataService {
         };
     }
 
-    // ─────────────────────────────────────────────
     //  GET /patient/assessments/:id
-    // ─────────────────────────────────────────────
     async getAssessmentDetail(patientId: string, assessmentId: string) {
         const assessment = await this.assessmentRepository.findOne({
             where: { id: assessmentId },
@@ -174,9 +166,7 @@ export class PatientDataService {
         };
     }
 
-    // ─────────────────────────────────────────────
     //  PATCH /patient/notification-preferences
-    // ─────────────────────────────────────────────
     async updateNotificationPreferences(patientId: string, dto: UpdateNotificationPrefsDto) {
         const patient = await this.patientRepository.findOne({
             where: { id: patientId },
@@ -186,7 +176,7 @@ export class PatientDataService {
             throw new NotFoundException('Patient not found');
         }
 
-        // Merge with current prefs (do not overwrite all)
+        // Merge with current prefs
         const currentPrefs = patient.notificationPrefs ?? {};
         patient.notificationPrefs = {
             ...currentPrefs,
