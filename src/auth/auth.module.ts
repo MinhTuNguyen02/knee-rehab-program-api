@@ -9,6 +9,7 @@ import { User } from './entities/user.entity';
 import { JwtStrategy } from './strategies/jwt.strategy';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EmailThrottlerGuard } from './guards/email-throttler.guard';
+import { IpThrottlerGuard } from './guards/ip-throttler.guard';
 
 @Module({
   imports: [
@@ -33,7 +34,7 @@ import { EmailThrottlerGuard } from './guards/email-throttler.guard';
       limit: 10,
     }]),
   ],
-  providers: [AuthService, JwtStrategy, EmailThrottlerGuard],
+  providers: [AuthService, JwtStrategy, IpThrottlerGuard, EmailThrottlerGuard],
   controllers: [AuthController],
   exports: [AuthService, PassportModule, JwtStrategy],
 })

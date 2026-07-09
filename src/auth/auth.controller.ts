@@ -9,6 +9,7 @@ import { JwtAuthGuard } from './guards/jwt-auth.guard';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth } from '@nestjs/swagger';
 import { Throttle, ThrottlerGuard } from '@nestjs/throttler';
 import { EmailThrottlerGuard } from './guards/email-throttler.guard';
+import { IpThrottlerGuard } from './guards/ip-throttler.guard';
 
 @ApiTags('auth')
 @Controller('auth')
@@ -22,7 +23,7 @@ export class AuthController {
         return this.authService.register(dto);
     }
 
-    @UseGuards(ThrottlerGuard)
+    @UseGuards(IpThrottlerGuard)
     @Throttle({ default: { limit: 5, ttl: 60000 } })
     @Post('login')
     @ApiOperation({ summary: 'Login a user' })

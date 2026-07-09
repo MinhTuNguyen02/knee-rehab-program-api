@@ -24,7 +24,7 @@ export class AuthService {
         private configService: ConfigService,
         private mailerService: MailerService,
     ) {
-        this.allowedDomain = this.configService.get<string>('ALLOWED_ADMIN_DOMAIN') || 'krps.com';
+        this.allowedDomain = this.configService.get<string>('ALLOWED_ADMIN_DOMAIN') || 'gmail.com';
     }
 
     private validateEmailDomain(email: string) {
@@ -117,17 +117,15 @@ export class AuthService {
         // Attempt to send email
         const smtpHost = this.configService.get<string>('SMTP_HOST');
         if (smtpHost) {
-            try {
-                await this.mailerService.sendMail({
-                    to: user.email,
-                    subject: 'Password Reset Request',
-                    text: `You requested a password reset. Click here to reset your password: ${resetLink}`,
-                    html: `<p>You requested a password reset. Click <a href="${resetLink}">here</a> to reset your password.</p>`,
-                });
-            } catch (error) {
+            this.mailerService.sendMail({
+                to: user.email,
+                subject: 'Password Reset Request',
+                text: `You requested a password reset. Click here to reset your password: ${resetLink}`,
+                html: `<p>You requested a password reset. Click <a href="${resetLink}">here</a> to reset your password.</p>`,
+            }).catch(error => {
                 console.error('Failed to send email, logging link instead:', resetLink);
                 console.error(error);
-            }
+            });
         } else {
             console.log('No SMTP configured. Logging link instead:', resetLink);
         }

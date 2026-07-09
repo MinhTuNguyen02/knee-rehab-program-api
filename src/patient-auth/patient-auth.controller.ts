@@ -8,17 +8,14 @@ import { PatientResetPasswordDto } from './dto/patient-reset-password.dto';
 import { PatientChangePasswordDto } from './dto/patient-change-password.dto';
 import { PatientJwtAuthGuard } from './guards/patient-jwt-auth.guard';
 import { EmailThrottlerGuard } from './guards/email-throttler.guard';
+import { IpThrottlerGuard } from 'src/auth/guards/ip-throttler.guard';
 
 @ApiTags('patient-auth')
 @Controller('patient-auth')
 export class PatientAuthController {
     constructor(private readonly patientAuthService: PatientAuthService) { }
 
-    /**
-     * POST /patient-auth/login
-     * Login with email + password → returns JWT + forcePasswordChange flag
-     */
-    @UseGuards(ThrottlerGuard)
+    @UseGuards(IpThrottlerGuard)
     @Throttle({ default: { limit: 5, ttl: 60000 } })
     @Post('login')
     @ApiOperation({ summary: 'Patient login' })
@@ -28,10 +25,6 @@ export class PatientAuthController {
         return this.patientAuthService.login(dto);
     }
 
-    /**
-     * POST /patient-auth/forgot-password
-     * Send password reset link via email. Does not confirm if email exists to prevent enumeration.
-     */
     @UseGuards(EmailThrottlerGuard)
     @Throttle({ default: { limit: 3, ttl: 900000 } })
     @Post('forgot-password')
@@ -41,10 +34,6 @@ export class PatientAuthController {
         return this.patientAuthService.forgotPassword(dto);
     }
 
-    /**
-     * POST /patient-auth/reset-password
-     * Set a new password using reset token from email. Token is single-use, expires in 1h.
-     */
     @Post('reset-password')
     @ApiOperation({ summary: 'Reset password using token from email' })
     @ApiResponse({ status: 200, description: 'Password reset successfully.' })
@@ -53,10 +42,6 @@ export class PatientAuthController {
         return this.patientAuthService.resetPassword(dto);
     }
 
-    /**
-     * POST /patient-auth/change-password
-     * Change password. If force_password_change = true → skips checking current password.
-     */
     @Post('change-password')
     @UseGuards(PatientJwtAuthGuard)
     @ApiBearerAuth()

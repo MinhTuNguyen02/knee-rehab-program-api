@@ -1,18 +1,8 @@
-import { ExecutionContext, HttpException, HttpStatus, Injectable } from '@nestjs/common';
+import { Injectable, ExecutionContext, HttpException, HttpStatus } from '@nestjs/common';
 import { ThrottlerGuard } from '@nestjs/throttler';
 
 @Injectable()
-export class EmailThrottlerGuard extends ThrottlerGuard {
-    protected async getTracker(req: Record<string, any>): Promise<string> {
-        const email = req.body?.email;
-
-        if (email) {
-            return email.toLowerCase();
-        }
-
-        return req.ip;
-    }
-
+export class IpThrottlerGuard extends ThrottlerGuard {
     protected async throwThrottlingException(
         context: ExecutionContext,
         throttlerLimitDetail: any

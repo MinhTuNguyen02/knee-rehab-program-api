@@ -29,16 +29,20 @@ import { MailerModule } from '@nestjs-modules/mailer';
     MailerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const port = parseInt(config.get<string>('SMTP_PORT') || '587', 10);
+        // const port = parseInt(config.get<string>('SMTP_PORT') || '587', 10);
+        const port = 465;
         const smtpUser = config.get<string>('SMTP_USER') || '';
         return {
           transport: {
             host: config.get<string>('SMTP_HOST'),
             port: port,
-            secure: port === 465,
+            secure: true,
             auth: {
               user: smtpUser,
               pass: config.get<string>('SMTP_PASS'),
+            },
+            tls: {
+              rejectUnauthorized: false,
             },
           },
           defaults: {
