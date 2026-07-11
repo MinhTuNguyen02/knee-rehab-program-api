@@ -29,7 +29,8 @@ import { MailerModule } from '@nestjs-modules/mailer';
     MailerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        const port = config.get<number>('SMTP_PORT');
+        const port = parseInt(config.get<string>('SMTP_PORT')!, 10);
+        const smtpUser = config.get<string>('SMTP_USER')!;
         return {
           transport: {
             host: config.get<string>('SMTP_HOST'),
@@ -39,12 +40,9 @@ import { MailerModule } from '@nestjs-modules/mailer';
               user: config.get<string>('SMTP_USER'),
               pass: config.get<string>('SMTP_PASS'),
             },
-            connectionTimeout: 5000,
-            greetingTimeout: 5000,
-            socketTimeout: 5000,
           },
           defaults: {
-            from: '"KRPS Portal" <noreply@krps.com>',
+            from: `"KRPS Portal" <${smtpUser}>`,
           },
         };
       },
