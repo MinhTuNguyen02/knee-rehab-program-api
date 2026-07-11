@@ -23,22 +23,22 @@ export class AssessmentsController {
     @UseGuards(JwtAuthGuard, RolesGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get all assessments' })
-    @ApiQuery({ name: 'page', required: false })
+    @ApiQuery({ name: 'after', required: false, description: 'Cursor for next page' })
+    @ApiQuery({ name: 'before', required: false, description: 'Cursor for previous page' })
     @ApiQuery({ name: 'limit', required: false })
     @ApiQuery({ name: 'zone', required: false })
-    @ApiQuery({ name: 'source', required: false })
     @ApiResponse({ status: 200, description: 'Return all assessments.' })
     findAll(
-        @Query('page') page?: string,
+        @Query('after') after?: string,
+        @Query('before') before?: string,
         @Query('limit') limit?: string,
         @Query('zone') zone?: string,
-        @Query('source') source?: string,
     ) {
         return this.assessmentsService.findAll({
-            page: page ? parseInt(page, 10) : undefined,
+            after,
+            before,
             limit: limit ? parseInt(limit, 10) : undefined,
             zone,
-            source,
         });
     }
 

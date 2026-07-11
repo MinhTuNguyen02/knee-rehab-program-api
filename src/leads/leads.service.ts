@@ -22,7 +22,7 @@ export class LeadsService {
         private configService: ConfigService,
     ) { }
 
-    // 1. POST /leads - Submit opt-in form
+    // 1. POST /leads
     async create(dto: CreateLeadDto): Promise<Patient> {
         let savedPatient = await this.patientRepository.findOneBy({ email: dto.email.toLowerCase() });
 
@@ -103,11 +103,9 @@ export class LeadsService {
         return savedPatient;
     }
 
-    // 2. GET /leads - List all opted-in patients (paginated, zone filters)
-    async findAll(query: { page?: number; limit?: number; zone?: string }) {
-        const page = query.page && query.page > 0 ? query.page : 1;
+    // 2. GET /leads
+    async findAll(query: { limit?: number; after?: string; before?: string; zone?: string }) {
         const limit = query.limit && query.limit > 0 ? query.limit : 20;
-        const skip = (page - 1) * limit;
 
         const queryBuilder = this.patientRepository.createQueryBuilder('patient')
             .leftJoinAndSelect('patient.assessments', 'assessment');
@@ -117,24 +115,33 @@ export class LeadsService {
             queryBuilder.andWhere('assessment.zone = :zone', { zone: query.zone });
         }
 
-        queryBuilder.orderBy('patient.createdAt', 'DESC');
-        queryBuilder.skip(skip);
-        queryBuilder.take(limit);
+        if (query.after) {
+            queryBuilder.andWhere('assessment.createdAt < :after', { after: new Date(query.after) });
+        }
 
-        const [data, total] = await queryBuilder.getManyAndCount();
+        queryBuilder.orderBy('assessment.createdAt', 'DESC');
+
+        queryBuilder.take(limit + 1);
+
+        const rawData = await queryBuilder.getMany();
+
+        const hasMore = rawData.length > limit;
+        const data = hasMore ? rawData.slice(0, limit) : rawData;
+
+        const endCursor = data.length > 0 ? data[data.length - 1].createdAt.toISOString() : null;
+
 
         return {
             data,
             meta: {
-                total,
-                page,
+                hasMore,
+                endCursor,
                 limit,
-                totalPages: Math.ceil(total / limit),
             },
         };
     }
 
-    // 3. GET /leads/:id - Get single patient detail with assessment history
+    // 3. GET /leads/:id
     async findOne(id: string): Promise<Patient> {
         const patient = await this.patientRepository.findOne({
             where: { id },

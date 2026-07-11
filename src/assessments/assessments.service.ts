@@ -36,10 +36,8 @@ export class AssessmentsService {
     }
 
     // 2. GET /assessments
-    async findAll(query: { page?: number; limit?: number; zone?: string; source?: string }) {
-        const page = query.page && query.page > 0 ? query.page : 1;
+    async findAll(query: { limit?: number; after?: string; before?: string; zone?: string }) {
         const limit = query.limit && query.limit > 0 ? query.limit : 20;
-        const skip = (page - 1) * limit;
 
         const queryBuilder = this.assessmentRepository.createQueryBuilder('assessment')
             .leftJoinAndSelect('assessment.patient', 'patient');
@@ -48,23 +46,27 @@ export class AssessmentsService {
             queryBuilder.andWhere('assessment.zone = :zone', { zone: query.zone });
         }
 
-        if (query.source) {
-            queryBuilder.andWhere('assessment.source = :source', { source: query.source });
+        if (query.after) {
+            queryBuilder.andWhere('assessment.createdAt < :after', { after: new Date(query.after) });
         }
 
         queryBuilder.orderBy('assessment.createdAt', 'DESC');
-        queryBuilder.skip(skip);
-        queryBuilder.take(limit);
 
-        const [data, total] = await queryBuilder.getManyAndCount();
+        queryBuilder.take(limit + 1);
+
+        const rawData = await queryBuilder.getMany();
+
+        const hasMore = rawData.length > limit;
+        const data = hasMore ? rawData.slice(0, limit) : rawData;
+
+        const endCursor = data.length > 0 ? data[data.length - 1].createdAt.toISOString() : null;
 
         return {
             data,
             meta: {
-                total,
-                page,
+                hasMore,
+                endCursor,
                 limit,
-                totalPages: Math.ceil(total / limit),
             },
         };
     }

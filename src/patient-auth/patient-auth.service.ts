@@ -50,7 +50,7 @@ export class PatientAuthService {
 
         if (!patient.passwordHash) {
             throw new UnauthorizedException(
-                'Account not activated. Please check your welcome email.',
+                'Invalid credentials',
             );
         }
 
@@ -89,12 +89,11 @@ export class PatientAuthService {
             email: dto.email.toLowerCase(),
         });
 
-        // Do not confirm if email exists or not (prevent enumeration attack)
         if (!patient) {
             return { data: { message: 'If an account with this email exists, a reset link has been sent.' } };
         }
 
-        // Create plain token to send via email, store SHA-256 hash in DB
+        // Create plain token to send via email
         const plainToken = crypto.randomBytes(32).toString('hex');
         const hashedToken = crypto.createHash('sha256').update(plainToken).digest('hex');
 
@@ -106,30 +105,27 @@ export class PatientAuthService {
             this.configService.get<string>('PATIENT_PORTAL_URL') ?? 'http://localhost:3003';
         const resetLink = `${patientPortalUrl}/reset-password?token=${plainToken}`;
 
-        try {
-            await this.mailerService.sendMail({
-                to: patient.email,
-                subject: 'KRPS — Reset your password',
-                html: `
-                    <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto;">
-                        <h2>Reset your password</h2>
-                        <p>Hi ${patient.firstName},</p>
-                        <p>We received a request to reset your password for your KRPS account.</p>
-                        <p>Click the button below to reset your password. This link expires in <strong>1 hour</strong>.</p>
-                        <a href="${resetLink}" 
-                           style="display:inline-block;padding:12px 24px;background:#1d4ed8;color:#fff;text-decoration:none;border-radius:6px;margin:16px 0;">
-                            Reset Password
-                        </a>
-                        <p style="color:#666;font-size:13px;">If you didn't request this, you can safely ignore this email.</p>
-                        <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
-                        <p style="color:#999;font-size:12px;">KRPS — Educational assessment tool. Not a substitute for medical advice.</p>
-                    </div>
-                `,
-            });
-        } catch (error) {
+        this.mailerService.sendMail({
+            to: patient.email,
+            subject: 'KRPS — Reset your password',
+            html: `
+                <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto;">
+                    <h2>Reset your password</h2>
+                    <p>Hi ${patient.firstName},</p>
+                    <p>We received a request to reset your password for your KRPS account.</p>
+                    <p>Click the button below to reset your password. This link expires in <strong>1 hour</strong>.</p>
+                    <a href="${resetLink}" 
+                       style="display:inline-block;padding:12px 24px;background:#1d4ed8;color:#fff;text-decoration:none;border-radius:6px;margin:16px 0;">
+                        Reset Password
+                    </a>
+                    <p style="color:#666;font-size:13px;">If you didn't request this, you can safely ignore this email.</p>
+                    <hr style="border:none;border-top:1px solid #eee;margin:24px 0;">
+                    <p style="color:#999;font-size:12px;">KRPS — Educational assessment tool. Not a substitute for medical advice.</p>
+                </div>
+            `,
+        }).catch((error) => {
             this.logger.error('Failed to send password reset email', error);
-            // Do not throw - still return success to prevent info leak
-        }
+        });    // Do not throw - still return success to prevent info leak
 
         return { data: { message: 'If an account with this email exists, a reset link has been sent.' } };
     }
@@ -155,7 +151,7 @@ export class PatientAuthService {
         return { data: { message: 'Password has been reset successfully.' } };
     }
 
-    //  POST /patient-auth/change-password (Protected)
+    //  POST /patient-auth/change-password
     async changePassword(
         patientId: string,
         dto: PatientChangePasswordDto,
@@ -192,7 +188,7 @@ export class PatientAuthService {
         return { data: { message: 'Password changed successfully.' } };
     }
 
-    //  POST /patient/fcm-token (Protected)
+    //  POST /patient/fcm-token
     async saveFcmToken(
         patientId: string,
         fcmToken: string,
@@ -201,7 +197,7 @@ export class PatientAuthService {
         return { data: { message: 'FCM token saved.' } };
     }
 
-    // Helper: generate patient account from opt-in (used by LeadsService)
+    // Helper: generate patient account from opt-in
     static generateTempPassword(): string {
         // Temp password: 8 chars, ensures uppercase, number, lowercase
         const upper = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
