@@ -3,12 +3,12 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
-import { AssessmentsModule } from './assessments/assessments.module';
-import { AuthModule } from './auth/auth.module';
-import { LeadsModule } from './leads/leads.module';
-import { DashboardModule } from './dashboard/dashboard.module';
-import { PatientAuthModule } from './patient-auth/patient-auth.module';
-import { PatientDataModule } from './patient-data/patient-data.module';
+import { AssessmentsModule } from './modules/assessments/assessments.module';
+import { AuthModule } from './modules/auth/auth.module';
+import { LeadsModule } from './modules/leads/leads.module';
+import { DashboardModule } from './modules/dashboard/dashboard.module';
+import { PatientAuthModule } from './modules/patient-auth/patient-auth.module';
+import { PatientDataModule } from './modules/patient-data/patient-data.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { MailerModule } from '@nestjs-modules/mailer';
 
