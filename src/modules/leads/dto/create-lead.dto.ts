@@ -32,9 +32,10 @@ export class CreateLeadDto {
     @IsNotEmpty()
     gender: string;
 
-    @ApiProperty({ description: 'Knee side affected', enum: ['L', 'R', 'B'] })
+    @ApiPropertyOptional({ description: 'Knee side affected', enum: ['L', 'R', 'B'] })
+    @IsOptional()
     @IsEnum(['L', 'R', 'B'], { message: 'Knee side must be L, R, B' })
-    kneeSide: string;
+    kneeSide?: string;
 
     @ApiProperty({ description: 'Whether consent is accepted' })
     @IsBoolean()

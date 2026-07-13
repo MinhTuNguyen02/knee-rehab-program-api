@@ -24,8 +24,8 @@ export class Patient {
     @Column()
     gender: string;
 
-    @Column()
-    kneeSide: string;
+    @Column({ type: 'varchar', nullable: true })
+    kneeSide: string | null;
 
     @Column({ default: false })
     consentAccepted: boolean;

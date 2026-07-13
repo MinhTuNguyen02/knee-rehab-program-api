@@ -8,7 +8,7 @@ import { PatientResetPasswordDto } from './dto/patient-reset-password.dto';
 import { PatientChangePasswordDto } from './dto/patient-change-password.dto';
 import { PatientJwtAuthGuard } from './guards/patient-jwt-auth.guard';
 import { EmailThrottlerGuard } from './guards/email-throttler.guard';
-import { IpThrottlerGuard } from 'src/auth/guards/ip-throttler.guard';
+import { IpThrottlerGuard } from './guards/ip-throttler.guard';
 
 @ApiTags('patient-auth')
 @Controller('patient-auth')

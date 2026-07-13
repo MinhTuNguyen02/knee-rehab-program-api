@@ -32,7 +32,7 @@ export class LeadsService {
             savedPatient.mobile = dto.mobile;
             savedPatient.age = dto.age;
             savedPatient.gender = dto.gender;
-            savedPatient.kneeSide = dto.kneeSide;
+            savedPatient.kneeSide = dto.kneeSide || null;
             savedPatient.consentAccepted = dto.consentAccepted;
             if (dto.notificationPrefs) {
                 savedPatient.notificationPrefs = dto.notificationPrefs;
