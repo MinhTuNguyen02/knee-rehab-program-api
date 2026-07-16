@@ -5,15 +5,15 @@ export class UpdateNotificationPrefsDto {
     @ApiPropertyOptional({ description: 'Receive assessment reminders via email' })
     @IsOptional()
     @IsBoolean()
-    assessmentReminders?: boolean;
+    reassessReminder?: boolean;
 
     @ApiPropertyOptional({ description: 'Receive email notifications' })
     @IsOptional()
     @IsBoolean()
-    emailNotifications?: boolean;
+    kneeGuidance?: boolean;
 
     @ApiPropertyOptional({ description: 'Receive SMS notifications' })
     @IsOptional()
     @IsBoolean()
-    smsNotifications?: boolean;
+    followUpKRP?: boolean;
 }

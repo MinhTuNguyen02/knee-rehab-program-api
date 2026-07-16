@@ -180,9 +180,9 @@ export class PatientDataService {
         const currentPrefs = patient.notificationPrefs ?? {};
         patient.notificationPrefs = {
             ...currentPrefs,
-            ...(dto.assessmentReminders !== undefined && { assessmentReminders: dto.assessmentReminders }),
-            ...(dto.emailNotifications !== undefined && { emailNotifications: dto.emailNotifications }),
-            ...(dto.smsNotifications !== undefined && { smsNotifications: dto.smsNotifications }),
+            ...(dto.reassessReminder !== undefined && { reassessReminder: dto.reassessReminder }),
+            ...(dto.kneeGuidance !== undefined && { kneeGuidance: dto.kneeGuidance }),
+            ...(dto.followUpKRP !== undefined && { followUpKRP: dto.followUpKRP }),
         };
 
         await this.patientRepository.save(patient);
