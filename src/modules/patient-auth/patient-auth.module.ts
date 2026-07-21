@@ -11,6 +11,7 @@ import { Patient } from '../assessments/entities/patient.entity';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EmailThrottlerGuard } from './guards/email-throttler.guard';
 import { IpThrottlerGuard } from './guards/ip-throttler.guard';
+import { PatientNotificationsModule } from '../patient-notifications/patient-notifications.module';
 
 @Module({
     imports: [
@@ -34,6 +35,7 @@ import { IpThrottlerGuard } from './guards/ip-throttler.guard';
             ttl: 60000,
             limit: 10,
         }]),
+        PatientNotificationsModule,
     ],
     providers: [PatientAuthService, PatientJwtStrategy, PatientJwtAuthGuard, EmailThrottlerGuard, IpThrottlerGuard],
     controllers: [PatientAuthController],

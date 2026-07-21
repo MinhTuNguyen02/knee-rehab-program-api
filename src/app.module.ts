@@ -11,6 +11,8 @@ import { PatientAuthModule } from './modules/patient-auth/patient-auth.module';
 import { PatientDataModule } from './modules/patient-data/patient-data.module';
 import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { MailerModule } from '@nestjs-modules/mailer';
+import { PatientNotificationsModule } from './modules/patient-notifications/patient-notifications.module';
+import { FirebaseModule } from './modules/firebase/firebase.module';
 
 @Module({
   imports: [
@@ -57,6 +59,8 @@ import { MailerModule } from '@nestjs-modules/mailer';
     DashboardModule,
     PatientAuthModule,
     PatientDataModule,
+    FirebaseModule,
+    PatientNotificationsModule,
   ],
   controllers: [AppController],
   providers: [AppService],
