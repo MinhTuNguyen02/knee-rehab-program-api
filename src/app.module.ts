@@ -13,6 +13,7 @@ import { LoggerMiddleware } from './common/middleware/logger.middleware';
 import { MailerModule } from '@nestjs-modules/mailer';
 import { PatientNotificationsModule } from './modules/patient-notifications/patient-notifications.module';
 import { FirebaseModule } from './modules/firebase/firebase.module';
+import { ChatModule } from './modules/chat/chat.module';
 
 @Module({
   imports: [
@@ -61,6 +62,7 @@ import { FirebaseModule } from './modules/firebase/firebase.module';
     PatientDataModule,
     FirebaseModule,
     PatientNotificationsModule,
+    ChatModule,
   ],
   controllers: [AppController],
   providers: [AppService],
