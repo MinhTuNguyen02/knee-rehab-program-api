@@ -1,6 +1,6 @@
 import { Injectable, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository } from 'typeorm';
+import { Repository, IsNull } from 'typeorm';
 import { Conversation } from './entities/conversations.entity';
 import { Message, SenderType } from './entities/messages.entity';
 import { CreateMessageDto, GetMessagesQueryDto } from './dto/chat.dto';
@@ -108,12 +108,46 @@ export class ChatService {
     }
 
     // Staff side: List all active conversations sorted by lastMessageAt or creation fallback
-    async getConversationsForStaff(): Promise<Conversation[]> {
-        return this.conversationRepo.createQueryBuilder('conversation')
+    async getConversationsForStaff(): Promise<any[]> {
+        const conversations = await this.conversationRepo.createQueryBuilder('conversation')
             .leftJoinAndSelect('conversation.patient', 'patient')
+            .leftJoinAndSelect('patient.assessments', 'assessment')
             .addSelect('COALESCE(conversation.last_message_at, conversation.created_at)', 'sort_date')
             .orderBy('sort_date', 'DESC')
             .getMany();
+
+        const result: any[] = [];
+        for (const conv of conversations) {
+            const lastMessage = await this.messageRepo.findOne({
+                where: { conversationId: conv.id },
+                order: { sentAt: 'DESC' }
+            });
+
+            const unreadCount = await this.messageRepo.count({
+                where: {
+                    conversationId: conv.id,
+                    senderType: SenderType.PATIENT,
+                    readAt: IsNull()
+                }
+            });
+
+            result.push({
+                id: conv.id,
+                patientId: conv.patientId,
+                createdAt: conv.createdAt,
+                lastMessageAt: conv.lastMessageAt,
+                patient: conv.patient,
+                lastMessage: lastMessage ? {
+                    id: lastMessage.id,
+                    body: lastMessage.body,
+                    senderType: lastMessage.senderType,
+                    sentAt: lastMessage.sentAt,
+                    readAt: lastMessage.readAt
+                } : null,
+                unreadCount
+            });
+        }
+        return result;
     }
 
     // Staff side: Get messages for a specific conversation
