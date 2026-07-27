@@ -1,5 +1,6 @@
 import { IsString, IsNotEmpty, IsOptional, IsInt, Min, IsISO8601, IsUUID } from 'class-validator';
-import { Type } from 'class-transformer';
+import { Type, Transform } from 'class-transformer';
+import escapeHtml from 'escape-html';
 
 export class GetMessagesQueryDto {
     @IsOptional()
@@ -18,7 +19,13 @@ export class GetMessagesQueryDto {
 }
 
 export class CreateMessageDto {
+    @Transform(({ value }) => {
+        if (typeof value === 'string') {
+            return escapeHtml(value.trim());
+        }
+        return value;
+    })
     @IsString()
-    @IsNotEmpty()
+    @IsNotEmpty({ message: 'Message body cannot be empty or just spaces' })
     body: string;
 }

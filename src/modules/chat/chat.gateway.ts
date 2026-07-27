@@ -1,0 +1,210 @@
+import {
+    WebSocketGateway,
+    WebSocketServer,
+    OnGatewayConnection,
+    OnGatewayDisconnect,
+} from '@nestjs/websockets';
+import { Server, Socket } from 'socket.io';
+import { JwtService } from '@nestjs/jwt';
+import { ChatService } from './chat.service';
+import { InjectRepository } from '@nestjs/typeorm';
+import { Repository } from 'typeorm';
+import { Patient } from '../assessments/entities/patient.entity';
+import { User } from '../auth/entities/user.entity';
+import { Logger } from '@nestjs/common';
+
+@WebSocketGateway({
+    cors: {
+        origin: process.env.ALLOWED_ORIGINS ? process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()) : [],
+        credentials: true,
+    },
+})
+export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
+    @WebSocketServer()
+    server: Server;
+
+    private readonly logger = new Logger(ChatGateway.name);
+
+    // map socketId -> user info
+    private connectedClients = new Map<string, { userId: string; userType: 'patient' | 'staff' }>();
+
+    constructor(
+        private readonly jwtService: JwtService,
+        private readonly chatService: ChatService,
+        @InjectRepository(Patient)
+        private patientRepository: Repository<Patient>,
+        @InjectRepository(User)
+        private userRepository: Repository<User>,
+    ) { }
+
+    async handleConnection(client: Socket) {
+        try {
+            const token = client.handshake.query.token as string;
+            if (!token) {
+                client.disconnect(true);
+                return;
+            }
+
+            const payload = this.jwtService.verify(token);
+            const userType: 'patient' | 'staff' = payload.type === 'patient' ? 'patient' : 'staff';
+            const userId = payload.sub;
+
+            this.connectedClients.set(client.id, { userId, userType });
+            this.logger.log(`[connect] ${userType} ${userId} connected (socket: ${client.id})`);
+
+            client.on('join:conversation', (data: { conversationId: string }) => {
+                this.handleJoinConversation(client, data);
+            });
+
+            client.on('leave:conversation', (data: { conversationId: string }) => {
+                this.handleLeaveConversation(client, data);
+            });
+
+            client.on('message:send', async (data: { conversationId: string; body: string }, callback?: Function) => {
+                await this.handleMessageSend(client, data, callback);
+            });
+
+            client.on('message:read', async (data: { conversationId: string }) => {
+                await this.handleMessageRead(client, data);
+            });
+
+            client.on('typing:start', (data: { conversationId: string }) => {
+                this.handleTypingStart(client, data);
+            });
+
+            client.on('typing:stop', (data: { conversationId: string }) => {
+                this.handleTypingStop(client, data);
+            });
+
+            if (userType === 'patient') {
+                const patient = await this.patientRepository.findOne({ where: { id: userId } });
+                if (!patient) {
+                    this.connectedClients.delete(client.id);
+                    client.disconnect(true);
+                    return;
+                }
+                const conversation = await this.chatService.getOrCreateConversation(userId);
+                client.join(`conversation:${conversation.id}`);
+                this.logger.log(`[connect] patient ${userId} auto-joined room conversation:${conversation.id}`);
+            } else {
+                client.join('staff_inbox');
+                this.logger.log(`[connect] staff ${userId} joined staff_inbox`);
+
+                const user = await this.userRepository.findOne({ where: { id: userId } });
+                if (!user) {
+                    this.connectedClients.delete(client.id);
+                    client.disconnect(true);
+                    return;
+                }
+            }
+
+        } catch (error) {
+            this.logger.error(`[connect] auth failed: ${error.message}`);
+            client.disconnect(true);
+        }
+    }
+
+    handleDisconnect(client: Socket) {
+        const userInfo = this.connectedClients.get(client.id);
+        if (userInfo) {
+            this.logger.log(`[disconnect] ${userInfo.userType} ${userInfo.userId} disconnected`);
+            this.connectedClients.delete(client.id);
+        }
+    }
+
+    private handleJoinConversation(client: Socket, data: { conversationId: string }) {
+        const userInfo = this.connectedClients.get(client.id);
+        if (!userInfo) {
+            this.logger.warn(`[join:conversation] unknown client ${client.id}`);
+            return;
+        }
+        if (userInfo.userType === 'staff') {
+            client.join(`conversation:${data.conversationId}`);
+            this.logger.log(`[join:conversation] staff ${userInfo.userId} joined conversation:${data.conversationId}`);
+        }
+    }
+
+    private handleLeaveConversation(client: Socket, data: { conversationId: string }) {
+        const userInfo = this.connectedClients.get(client.id);
+        if (!userInfo) return;
+        if (userInfo.userType === 'staff') {
+            client.leave(`conversation:${data.conversationId}`);
+            this.logger.log(`[leave:conversation] staff ${userInfo.userId} left conversation:${data.conversationId}`);
+        }
+    }
+
+    private async handleMessageSend(
+        client: Socket,
+        data: { conversationId: string; body: string },
+        callback?: Function
+    ) {
+        const userInfo = this.connectedClients.get(client.id);
+        if (!userInfo) return;
+
+        try {
+            let message;
+            if (userInfo.userType === 'patient') {
+                message = await this.chatService.sendMessage(userInfo.userId, { body: data.body });
+            } else {
+                message = await this.chatService.sendStaffMessage(data.conversationId, userInfo.userId, { body: data.body });
+            }
+
+            this.logger.log(`[message:send] ${userInfo.userType} ${userInfo.userId} -> conversation:${data.conversationId} (msg: ${message.id})`);
+
+            // Broadcast to everyone else in the conversation room
+            client.to(`conversation:${data.conversationId}`).emit('message:receive', message);
+            // Update inbox for all staff
+            this.server.to('staff_inbox').emit('conversation:update', { conversationId: data.conversationId, lastMessage: message });
+
+            // ACK back to sender with the saved message
+            if (typeof callback === 'function') {
+                callback(message);
+            }
+        } catch (error) {
+            this.logger.error(`[message:send] error: ${error.message}`);
+            if (typeof callback === 'function') {
+                callback({ error: error.message });
+            }
+        }
+    }
+
+    private async handleMessageRead(client: Socket, data: { conversationId: string }) {
+        const userInfo = this.connectedClients.get(client.id);
+        if (!userInfo) return;
+
+        try {
+            if (userInfo.userType === 'patient') {
+                await this.chatService.markConversationAsReadByPatient(userInfo.userId);
+            } else {
+                await this.chatService.markConversationAsReadByStaff(data.conversationId);
+            }
+
+            this.logger.log(`[message:read] ${userInfo.userType} ${userInfo.userId} read conversation:${data.conversationId}`);
+
+            client.to(`conversation:${data.conversationId}`).emit('message:read', {
+                conversationId: data.conversationId,
+                readBy: userInfo.userType
+            });
+        } catch (error) {
+            this.logger.error(`[message:read] error: ${error.message}`);
+        }
+    }
+
+    private handleTypingStart(client: Socket, data: { conversationId: string }) {
+        const userInfo = this.connectedClients.get(client.id);
+        if (!userInfo) return;
+
+        client.to(`conversation:${data.conversationId}`).emit('typing:start', {
+            userType: userInfo.userType
+        });
+    }
+
+    private handleTypingStop(client: Socket, data: { conversationId: string }) {
+        const userInfo = this.connectedClients.get(client.id);
+        if (!userInfo) return;
+
+        client.to(`conversation:${data.conversationId}`).emit('typing:stop', {
+            userType: userInfo.userType
+        });
+    }
+}
