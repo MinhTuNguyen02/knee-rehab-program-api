@@ -48,6 +48,7 @@ export class ChatService {
         const qb = this.messageRepo.createQueryBuilder('message')
             .where('message.conversation_id = :conversationId', { conversationId: conversation.id })
             .orderBy('message.sentAt', 'DESC')
+            .addOrderBy('message.id', 'DESC')
             .take(limit + 1);
 
         if (before) {
@@ -162,6 +163,7 @@ export class ChatService {
         const qb = this.messageRepo.createQueryBuilder('message')
             .where('message.conversation_id = :conversationId', { conversationId: conversation.id })
             .orderBy('message.sentAt', 'DESC')
+            .addOrderBy('message.id', 'DESC')
             .take(limit + 1);
 
         if (before) {

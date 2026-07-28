@@ -10,11 +10,11 @@ export class Conversation {
     @Column({ name: 'patient_id', type: 'uuid' })
     patientId: string;
 
-    @CreateDateColumn({ name: 'created_at', type: 'timestamp' })
+    @CreateDateColumn({ name: 'created_at', type: 'timestamptz' })
     createdAt: Date;
 
     @Index()
-    @Column({ name: 'last_message_at', type: 'timestamp', nullable: true })
+    @Column({ name: 'last_message_at', type: 'timestamptz', nullable: true })
     lastMessageAt: Date;
 
     @OneToMany(() => Message, (message) => message.conversation)

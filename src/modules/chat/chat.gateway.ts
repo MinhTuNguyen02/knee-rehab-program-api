@@ -68,12 +68,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 await this.handleMessageRead(client, data);
             });
 
-            client.on('typing:start', (data: { conversationId: string }) => {
-                this.handleTypingStart(client, data);
+            client.on('typing:start', async (data: { conversationId: string }) => {
+                await this.handleTypingStart(client, data);
             });
 
-            client.on('typing:stop', (data: { conversationId: string }) => {
-                this.handleTypingStop(client, data);
+            client.on('typing:stop', async (data: { conversationId: string }) => {
+                await this.handleTypingStop(client, data);
             });
 
             if (userType === 'patient') {
@@ -84,8 +84,29 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
                     return;
                 }
                 const conversation = await this.chatService.getOrCreateConversation(userId);
+
                 client.join(`conversation:${conversation.id}`);
+                client.data.conversationId = conversation.id;
                 this.logger.log(`[connect] patient ${userId} auto-joined room conversation:${conversation.id}`);
+
+                client.to(`conversation:${conversation.id}`).emit('patient:status', { isOnline: true });
+
+                this.server.to('staff_inbox').emit('patient:global_status', { patientId: userId, isOnline: true });
+
+                const room = this.server.sockets.adapter.rooms.get(`conversation:${conversation.id}`);
+                let isStaffInRoom = false;
+
+                if (room) {
+                    for (const socketId of room) {
+                        const clientInfo = this.connectedClients.get(socketId);
+                        if (clientInfo?.userType === 'staff') {
+                            isStaffInRoom = true;
+                            break;
+                        }
+                    }
+                }
+
+                client.emit('staff:status', { isOnline: isStaffInRoom });
             } else {
                 client.join('staff_inbox');
                 this.logger.log(`[connect] staff ${userId} joined staff_inbox`);
@@ -96,6 +117,12 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
                     client.disconnect(true);
                     return;
                 }
+
+                const onlinePatientIds = Array.from(this.connectedClients.values())
+                    .filter(info => info.userType === 'patient')
+                    .map(info => info.userId);
+
+                client.emit('patient:global_initial', onlinePatientIds);
             }
 
         } catch (error) {
@@ -109,6 +136,17 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         if (userInfo) {
             this.logger.log(`[disconnect] ${userInfo.userType} ${userInfo.userId} disconnected`);
             this.connectedClients.delete(client.id);
+
+            const conversationId = client.data.conversationId;
+
+            if (conversationId) {
+                if (userInfo.userType === 'patient') {
+                    this.server.to(`conversation:${conversationId}`).emit('patient:status', { isOnline: false });
+                    this.server.to('staff_inbox').emit('patient:global_status', { patientId: userInfo.userId, isOnline: false });
+                } else {
+                    this.server.to(`conversation:${conversationId}`).emit('staff:status', { isOnline: false });
+                }
+            }
         }
     }
 
@@ -120,7 +158,24 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         }
         if (userInfo.userType === 'staff') {
             client.join(`conversation:${data.conversationId}`);
+            client.data.conversationId = data.conversationId;
             this.logger.log(`[join:conversation] staff ${userInfo.userId} joined conversation:${data.conversationId}`);
+            client.to(`conversation:${data.conversationId}`).emit('staff:status', { isOnline: true });
+
+            const room = this.server.sockets.adapter.rooms.get(`conversation:${data.conversationId}`);
+            let isPatientInRoom = false;
+
+            if (room) {
+                for (const socketId of room) {
+                    const clientInfo = this.connectedClients.get(socketId);
+                    if (clientInfo?.userType === 'patient') {
+                        isPatientInRoom = true;
+                        break;
+                    }
+                }
+            }
+
+            client.emit('patient:status', { isOnline: isPatientInRoom });
         }
     }
 
@@ -129,7 +184,9 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         if (!userInfo) return;
         if (userInfo.userType === 'staff') {
             client.leave(`conversation:${data.conversationId}`);
+            client.data.conversationId = null;
             this.logger.log(`[leave:conversation] staff ${userInfo.userId} left conversation:${data.conversationId}`);
+            client.to(`conversation:${data.conversationId}`).emit('staff:status', { isOnline: false });
         }
     }
 
@@ -143,18 +200,36 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
         try {
             let message;
+            let conversationId: string;
             if (userInfo.userType === 'patient') {
-                message = await this.chatService.sendMessage(userInfo.userId, { body: data.body });
+                message = await this.chatService.sendMessage(userInfo.userId, {
+                    body: data.body,
+                });
+
+                conversationId = client.data.conversationId;
             } else {
-                message = await this.chatService.sendStaffMessage(data.conversationId, userInfo.userId, { body: data.body });
+                message = await this.chatService.sendStaffMessage(
+                    data.conversationId,
+                    userInfo.userId,
+                    { body: data.body },
+                );
+
+                conversationId = data.conversationId;
             }
 
-            this.logger.log(`[message:send] ${userInfo.userType} ${userInfo.userId} -> conversation:${data.conversationId} (msg: ${message.id})`);
+            this.logger.log(`[message:send] ${userInfo.userType} ${userInfo.userId} -> conversation:${conversationId} (msg: ${message.id})`);
 
+            const room = `conversation:${conversationId}`;
+            this.logger.log(
+                `Room ${room} sockets: ${Array.from(this.server.sockets.adapter.rooms.get(room) ?? [])
+                }`
+            );
             // Broadcast to everyone else in the conversation room
-            client.to(`conversation:${data.conversationId}`).emit('message:receive', message);
+            client.to(`conversation:${conversationId}`).emit('message:receive', message);
+
+
             // Update inbox for all staff
-            this.server.to('staff_inbox').emit('conversation:update', { conversationId: data.conversationId, lastMessage: message });
+            this.server.to('staff_inbox').emit('conversation:update', { conversationId: conversationId, lastMessage: message });
 
             // ACK back to sender with the saved message
             if (typeof callback === 'function') {
@@ -173,37 +248,72 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         if (!userInfo) return;
 
         try {
+            let conversationId: string;
+
             if (userInfo.userType === 'patient') {
                 await this.chatService.markConversationAsReadByPatient(userInfo.userId);
+
+                conversationId =
+                    userInfo.userType === 'patient'
+                        ? client.data.conversationId
+                        : data.conversationId;
+
             } else {
                 await this.chatService.markConversationAsReadByStaff(data.conversationId);
+
+                conversationId = data.conversationId;
             }
 
-            this.logger.log(`[message:read] ${userInfo.userType} ${userInfo.userId} read conversation:${data.conversationId}`);
+            this.logger.log(
+                `[message:read] ${userInfo.userType} ${userInfo.userId} read conversation:${conversationId}`
+            );
 
-            client.to(`conversation:${data.conversationId}`).emit('message:read', {
-                conversationId: data.conversationId,
-                readBy: userInfo.userType
+            client.to(`conversation:${conversationId}`).emit("message:read", {
+                conversationId,
+                readBy: userInfo.userType,
             });
         } catch (error) {
             this.logger.error(`[message:read] error: ${error.message}`);
         }
     }
 
-    private handleTypingStart(client: Socket, data: { conversationId: string }) {
+    private async handleTypingStart(client: Socket, data: { conversationId: string }) {
         const userInfo = this.connectedClients.get(client.id);
         if (!userInfo) return;
 
-        client.to(`conversation:${data.conversationId}`).emit('typing:start', {
+        let conversationId: string;
+
+        if (userInfo.userType === 'patient') {
+            conversationId =
+                userInfo.userType === 'patient'
+                    ? client.data.conversationId
+                    : data.conversationId;
+
+        } else {
+            conversationId = data.conversationId;
+        }
+
+        client.to(`conversation:${conversationId}`).emit('typing:start', {
             userType: userInfo.userType
         });
     }
 
-    private handleTypingStop(client: Socket, data: { conversationId: string }) {
+    private async handleTypingStop(client: Socket, data: { conversationId: string }) {
         const userInfo = this.connectedClients.get(client.id);
         if (!userInfo) return;
 
-        client.to(`conversation:${data.conversationId}`).emit('typing:stop', {
+        let conversationId: string;
+
+        if (userInfo.userType === 'patient') {
+            conversationId =
+                userInfo.userType === 'patient'
+                    ? client.data.conversationId
+                    : data.conversationId;
+        } else {
+            conversationId = data.conversationId;
+        }
+
+        client.to(`conversation:${conversationId}`).emit('typing:stop', {
             userType: userInfo.userType
         });
     }

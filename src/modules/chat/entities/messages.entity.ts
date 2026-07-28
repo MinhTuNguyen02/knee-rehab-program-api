@@ -27,10 +27,10 @@ export class Message {
     @Column({ type: 'text' })
     body: string;
 
-    @CreateDateColumn({ name: 'sent_at', type: 'timestamp' })
+    @CreateDateColumn({ name: 'sent_at', type: 'timestamptz' })
     sentAt: Date;
 
-    @Column({ name: 'read_at', type: 'timestamp', nullable: true })
+    @Column({ name: 'read_at', type: 'timestamptz', nullable: true })
     readAt: Date;
 
     @ManyToOne(() => Conversation, (conversation) => conversation.messages, {
