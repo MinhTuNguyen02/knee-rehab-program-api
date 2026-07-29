@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Param, UseGuards, Req } from '@nestjs/common';
+import { Controller, Get, Patch, Param, UseGuards, Req, Query } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { PatientNotificationsService } from './patient-notifications.service';
 import { PatientJwtAuthGuard } from '../patient-auth/guards/patient-jwt-auth.guard';
@@ -12,8 +12,9 @@ export class PatientNotificationsController {
 
     @Get()
     @ApiOperation({ summary: 'Get list notifications' })
-    getAll(@Req() req: any) {
-        return this.notificationsService.getNotifications(req.user.id);
+    getAll(@Req() req: any, @Query('limit') limit?: number, @Query('before') before?: string) {
+        const parsedLimit = limit ? parseInt(limit.toString(), 10) : 20;
+        return this.notificationsService.getNotifications(req.user.id, { limit: parsedLimit, before });
     }
 
     @Get('unread-count')

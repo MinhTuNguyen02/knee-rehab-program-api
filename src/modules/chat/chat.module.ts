@@ -10,10 +10,14 @@ import { Patient } from "../assessments/entities/patient.entity";
 import { User } from "../auth/entities/user.entity";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
+import { PatientNotificationsModule } from '../patient-notifications/patient-notifications.module'
+import { StaffNotificationsModule } from "../StaffNotificationsModule/staff-notifications.module";
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([Conversation, Message, Patient, User]),
+        PatientNotificationsModule,
+        StaffNotificationsModule,
         JwtModule.registerAsync({
             imports: [ConfigModule],
             inject: [ConfigService],

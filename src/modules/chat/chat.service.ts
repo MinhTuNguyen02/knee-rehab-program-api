@@ -1,17 +1,26 @@
-import { Injectable, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull } from 'typeorm';
+import { Repository, IsNull, DataSource } from 'typeorm';
 import { Conversation } from './entities/conversations.entity';
 import { Message, SenderType } from './entities/messages.entity';
 import { CreateMessageDto, GetMessagesQueryDto } from './dto/chat.dto';
+import { PatientNotificationsService } from '../patient-notifications/patient-notifications.service';
+import { NotificationType, PatientNotification } from '../patient-notifications/entities/patient-notification.entity';
+import { StaffNotificationsService } from '../StaffNotificationsModule/staff-notifications.service';
+import { StaffNotification } from '../StaffNotificationsModule/entities/staff-notification.entity';
+import { User } from '../auth/entities/user.entity';
 
 @Injectable()
 export class ChatService {
+    private readonly logger = new Logger(ChatService.name);
     constructor(
         @InjectRepository(Conversation)
         private conversationRepo: Repository<Conversation>,
         @InjectRepository(Message)
         private messageRepo: Repository<Message>,
+        private readonly notificationsService: PatientNotificationsService,
+        private readonly staffNotificationService: StaffNotificationsService,
+        private dataSource: DataSource,
     ) { }
 
     // Retrieve or initialize conversation for a specific patient
@@ -77,21 +86,63 @@ export class ChatService {
 
     // Patient side: Send a message from patient
     async sendMessage(patientId: string, dto: CreateMessageDto) {
-        const conversation = await this.getOrCreateConversation(patientId);
-
-        const message = this.messageRepo.create({
-            conversationId: conversation.id,
-            senderType: SenderType.PATIENT,
-            senderId: patientId,
-            body: dto.body,
-        });
-        await this.messageRepo.save(message);
-
-        await this.conversationRepo.update(conversation.id, {
-            lastMessageAt: message.sentAt,
+        const conversation = await this.conversationRepo.findOne({
+            where: { patientId },
+            relations: ['patient']
         });
 
-        return message;
+        if (!conversation) throw new NotFoundException('Conversation not found');
+
+        // 1. DB TRANSACTION TO ENSURE ATOMICITY
+        const { savedMessage, savedNotifications } = await this.dataSource.transaction(async (manager) => {
+
+            // A. Create and save Message
+            const message = manager.create(Message, {
+                conversationId: conversation.id,
+                senderType: SenderType.PATIENT,
+                senderId: patientId,
+                body: dto.body,
+            });
+            const savedMsg = await manager.save(message);
+
+            // B. Update LastMessageAt
+            await manager.update(Conversation, conversation.id, {
+                lastMessageAt: savedMsg.sentAt,
+            });
+
+            // C. Get all Staff (from User table)
+            const allStaff = await manager.find(User, { select: ['id'] });
+
+            // D. Create array of Notifications for all Staff
+            const notificationsToSave = allStaff.map(staff => {
+                return manager.create(StaffNotification, {
+                    userId: staff.id,
+                    type: 'patient_message',
+                    title: `New message from ${conversation.patient?.firstName || 'Patient'}`,
+                    body: dto.body,
+                    payload: {
+                        conversationId: conversation.id,
+                        messageId: savedMsg.id,
+                        link: `/messages`
+                    },
+                });
+            });
+
+            const savedNotifs = await manager.save(notificationsToSave);
+
+            return {
+                savedMessage: savedMsg,
+                savedNotifications: savedNotifs
+            };
+        });
+
+        // 2. CALL FIREBASE TO SEND NOTIFICATIONS IN BATCH
+        if (savedNotifications && savedNotifications.length > 0) {
+            this.staffNotificationService.broadcastPush(savedNotifications)
+                .catch((err: any) => this.logger.error(`FCM Broadcast Failed`, err.stack));
+        }
+
+        return savedMessage;
     }
 
     // Patient side: Mark all staff messages as read in patient's conversation thread
@@ -197,19 +248,50 @@ export class ChatService {
             throw new NotFoundException('Conversation not found');
         }
 
-        const message = this.messageRepo.create({
-            conversationId: conversation.id,
-            senderType: SenderType.STAFF,
-            senderId: staffId,
-            body: dto.body,
-        });
-        await this.messageRepo.save(message);
+        // 1. DB TRANSACTION
+        const { savedMessage, savedNotification } = await this.dataSource.transaction(async (manager) => {
 
-        await this.conversationRepo.update(conversation.id, {
-            lastMessageAt: message.sentAt,
+            // A. Create and save Message
+            const message = manager.create(Message, {
+                conversationId: conversation.id,
+                senderType: SenderType.STAFF,
+                senderId: staffId,
+                body: dto.body,
+            });
+            const savedMsg = await manager.save(message);
+
+            // B. Update LastMessageAt of Conversation
+            await manager.update(Conversation, conversation.id, {
+                lastMessageAt: savedMsg.sentAt,
+            });
+
+            // C. Create and save Notification for Patient
+            const notification = manager.create(PatientNotification, {
+                patientId: conversation.patientId,
+                type: NotificationType.CLINIC_MESSAGE,
+                title: 'New Message from Adelaide Knee Clinic',
+                body: dto.body,
+                payload: {
+                    conversationId: conversation.id,
+                    messageId: savedMsg.id,
+                    link: '/chat'
+                },
+            });
+            const savedNotif = await manager.save(notification);
+
+            return {
+                savedMessage: savedMsg,
+                savedNotification: savedNotif
+            };
         });
 
-        return message;
+        // 2. AFTER TRANSACTION -> SEND FIREBASE
+        if (savedNotification) {
+            this.notificationsService.sendPush(conversation.patientId, savedNotification)
+                .catch((err: any) => this.logger.error(`FCM Push Failed for notification ${savedNotification.id}`, err.stack));
+        }
+
+        return savedMessage;
     }
 
     // Staff side: Mark all patient messages as read in conversation thread

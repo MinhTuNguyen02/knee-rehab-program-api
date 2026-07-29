@@ -5,6 +5,8 @@ import { PatientNotification, NotificationType } from './entities/patient-notifi
 import { Patient } from '../assessments/entities/patient.entity';
 import { getMessaging, Message } from 'firebase-admin/messaging';
 import type { App } from 'firebase-admin/app';
+import { Cron, CronExpression } from '@nestjs/schedule';
+import { LessThan } from 'typeorm';
 
 @Injectable()
 export class PatientNotificationsService {
@@ -19,14 +21,54 @@ export class PatientNotificationsService {
         private readonly firebaseApp: App,
     ) { }
 
+    @Cron('0 30 2 * * *')
+    async handleCronCleanOldPatientNotifications() {
+        this.logger.log('Started cleaning up old patient notifications...');
+
+        const thirtyDaysAgo = new Date();
+        thirtyDaysAgo.setDate(thirtyDaysAgo.getDate() - 30);
+
+        try {
+            const result = await this.notificationRepo.delete({
+                createdAt: LessThan(thirtyDaysAgo),
+            });
+
+            if (result.affected && result.affected > 0) {
+                this.logger.log(`Successfully deleted ${result.affected} old patient notifications.`);
+            }
+        } catch (error) {
+            this.logger.error('Failed to clean old patient notifications', error);
+        }
+    }
+
     // 1. Get lits noti
-    async getNotifications(patientId: string, limit = 20) {
-        const rawData = await this.notificationRepo.find({
-            where: { patientId },
-            order: { createdAt: 'DESC' },
-            take: limit,
-        });
-        return { data: rawData };
+    async getNotifications(patientId: string, query: { limit?: number; before?: string }) {
+        const { limit = 20, before } = query;
+
+        const qb = this.notificationRepo.createQueryBuilder('notif')
+            .where('notif.patientId = :patientId', { patientId })
+            .orderBy('notif.createdAt', 'DESC')
+            .addOrderBy('notif.id', 'DESC') // fallback sort
+            .take(limit + 1);
+
+        if (before) {
+            qb.andWhere('notif.createdAt < :before', { before: new Date(before) });
+        }
+
+        const notifications = await qb.getMany();
+
+        const hasMore = notifications.length > limit;
+        if (hasMore) {
+            notifications.pop(); // Remove extra record
+        }
+
+        return {
+            data: notifications,
+            meta: {
+                hasMore,
+                limit,
+            },
+        };
     }
 
     // 2. Get unread count
@@ -90,7 +132,7 @@ export class PatientNotificationsService {
         return notification;
     }
 
-    private async sendPush(patientId: string, notification: PatientNotification) {
+    public async sendPush(patientId: string, notification: PatientNotification) {
         try {
             const patient = await this.patientRepo.findOne({
                 where: { id: patientId },
@@ -112,6 +154,7 @@ export class PatientNotificationsService {
                     title: notification.title,
                     body: notification.body,
                     isRealtimeUpdate: 'true',
+                    conversationId: notification.payload?.conversationId || '',
                 },
 
                 notification: {

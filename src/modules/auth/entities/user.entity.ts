@@ -36,4 +36,11 @@ export class User {
         nullable: true,
     })
     resetTokenExpiry: Date | null;
+
+    @Column({
+        name: 'fcm_token',
+        type: 'varchar',
+        nullable: true,
+    })
+    fcmToken: string | null;
 }

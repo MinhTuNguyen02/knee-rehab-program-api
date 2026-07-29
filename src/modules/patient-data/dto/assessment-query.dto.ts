@@ -16,7 +16,7 @@ export class AssessmentQueryDto {
     before?: string;
 
     @ApiPropertyOptional({
-        description: 'Số lượng items mỗi trang (default: 10, max: 50)',
+        description: 'Number of items per page (default: 10, max: 50)',
         default: 10,
     })
     @IsOptional()
