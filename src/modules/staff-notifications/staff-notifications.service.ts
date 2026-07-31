@@ -127,10 +127,6 @@ export class StaffNotificationsService {
                         isRealtimeUpdate: 'true',
                         conversationId: notif.payload?.conversationId || '',
                     },
-                    notification: {
-                        title: notif.title,
-                        body: notif.body,
-                    },
                 });
             }
         });

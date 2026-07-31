@@ -11,7 +11,7 @@ import { User } from "../auth/entities/user.entity";
 import { JwtModule } from "@nestjs/jwt";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import { PatientNotificationsModule } from '../patient-notifications/patient-notifications.module'
-import { StaffNotificationsModule } from "../StaffNotificationsModule/staff-notifications.module";
+import { StaffNotificationsModule } from "../staff-notifications/staff-notifications.module";
 
 @Module({
     imports: [

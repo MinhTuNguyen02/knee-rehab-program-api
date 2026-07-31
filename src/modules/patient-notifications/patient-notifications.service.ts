@@ -5,7 +5,7 @@ import { PatientNotification, NotificationType } from './entities/patient-notifi
 import { Patient } from '../assessments/entities/patient.entity';
 import { getMessaging, Message } from 'firebase-admin/messaging';
 import type { App } from 'firebase-admin/app';
-import { Cron, CronExpression } from '@nestjs/schedule';
+import { Cron } from '@nestjs/schedule';
 import { LessThan } from 'typeorm';
 
 @Injectable()
@@ -155,12 +155,7 @@ export class PatientNotificationsService {
                     body: notification.body,
                     isRealtimeUpdate: 'true',
                     conversationId: notification.payload?.conversationId || '',
-                },
-
-                notification: {
-                    title: notification.title,
-                    body: notification.body,
-                },
+                }
             };
 
             const response = await getMessaging(this.firebaseApp).send(message);

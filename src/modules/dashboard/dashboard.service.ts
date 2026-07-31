@@ -11,7 +11,7 @@ export class DashboardService {
     private assessmentRepository: Repository<Assessment>,
     @InjectRepository(Patient)
     private patientRepository: Repository<Patient>,
-  ) {}
+  ) { }
 
   async getStats() {
     const totalSubmissions = await this.assessmentRepository.count();
@@ -21,9 +21,28 @@ export class DashboardService {
     const amber = await this.assessmentRepository.countBy({ zone: 'amber' });
     const red = await this.assessmentRepository.countBy({ zone: 'red' });
 
+    const convertedResult = await this.assessmentRepository
+      .createQueryBuilder('assessment')
+      .leftJoin('assessment.patient', 'patient')
+      .select('COUNT(DISTINCT patient.id)', 'count')
+      .where('patient.id IS NOT NULL')
+      .getRawOne();
+    const convertedCount = parseInt(convertedResult.count, 10) || 0;
+
+    const anonymousCount = await this.assessmentRepository
+      .createQueryBuilder('assessment')
+      .leftJoin('assessment.patient', 'patient')
+      .where('patient.id IS NULL')
+      .getCount();
+
+    const totalUniqueTakers = convertedCount + anonymousCount;
+    const conversionRate = totalUniqueTakers > 0
+      ? Math.round((convertedCount / totalUniqueTakers) * 100)
+      : 0;
+
     const sevenDaysAgo = new Date();
     sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-    
+
     const recentAssessments = await this.assessmentRepository.find({
       where: { createdAt: MoreThan(sevenDaysAgo) },
       select: ['createdAt']
@@ -34,6 +53,7 @@ export class DashboardService {
     return {
       totalSubmissions,
       totalOptedIn,
+      conversionRate,
       byZone: {
         green,
         amber,

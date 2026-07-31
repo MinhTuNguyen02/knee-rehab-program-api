@@ -14,7 +14,7 @@ import { MailerModule } from '@nestjs-modules/mailer';
 import { PatientNotificationsModule } from './modules/patient-notifications/patient-notifications.module';
 import { FirebaseModule } from './modules/firebase/firebase.module';
 import { ChatModule } from './modules/chat/chat.module';
-import { StaffNotificationsModule } from './modules/StaffNotificationsModule/staff-notifications.module';
+import { StaffNotificationsModule } from './modules/staff-notifications/staff-notifications.module'
 import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({

@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt, Min, IsISO8601, IsUUID } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsInt, Min, IsISO8601 } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import escapeHtml from 'escape-html';
 

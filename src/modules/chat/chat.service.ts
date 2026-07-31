@@ -6,8 +6,8 @@ import { Message, SenderType } from './entities/messages.entity';
 import { CreateMessageDto, GetMessagesQueryDto } from './dto/chat.dto';
 import { PatientNotificationsService } from '../patient-notifications/patient-notifications.service';
 import { NotificationType, PatientNotification } from '../patient-notifications/entities/patient-notification.entity';
-import { StaffNotificationsService } from '../StaffNotificationsModule/staff-notifications.service';
-import { StaffNotification } from '../StaffNotificationsModule/entities/staff-notification.entity';
+import { StaffNotificationsService } from '../staff-notifications/staff-notifications.service';
+import { StaffNotification } from '../staff-notifications/entities/staff-notification.entity';
 import { User } from '../auth/entities/user.entity';
 
 @Injectable()

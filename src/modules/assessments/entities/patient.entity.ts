@@ -74,5 +74,11 @@ export class Patient {
 
     @CreateDateColumn()
     createdAt: Date;
+
+    @Column({ type: 'timestamp', nullable: true })
+    reminder1SentAt: Date | null;
+
+    @Column({ type: 'timestamp', nullable: true })
+    reminder2SentAt: Date | null;
 }
 

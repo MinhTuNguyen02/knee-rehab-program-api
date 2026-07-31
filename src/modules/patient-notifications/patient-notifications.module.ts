@@ -4,13 +4,14 @@ import { PatientNotificationsController } from './patient-notifications.controll
 import { PatientNotificationsService } from './patient-notifications.service';
 import { PatientNotification } from './entities/patient-notification.entity';
 import { Patient } from '../assessments/entities/patient.entity';
+import { EmailRemindersService } from './email-reminders.service';
 
 @Module({
     imports: [
         TypeOrmModule.forFeature([PatientNotification, Patient]),
     ],
     controllers: [PatientNotificationsController],
-    providers: [PatientNotificationsService],
+    providers: [PatientNotificationsService, EmailRemindersService],
     exports: [PatientNotificationsService],
 })
 export class PatientNotificationsModule { }
