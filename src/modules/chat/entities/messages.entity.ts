@@ -1,4 +1,4 @@
-import { Entity, PrimaryGeneratedColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, PrimaryColumn, Column, CreateDateColumn, ManyToOne, JoinColumn } from 'typeorm';
 import { Conversation } from './conversations.entity';
 
 export enum SenderType {
@@ -8,8 +8,16 @@ export enum SenderType {
 
 @Entity('messages')
 export class Message {
-    @PrimaryGeneratedColumn('uuid')
+    @PrimaryColumn('uuid')
     id: string;
+
+    @Column({
+        name: 'client_timestamp', type: 'bigint', nullable: true, transformer: {
+            to: (value: number) => value,
+            from: (value: string) => parseInt(value, 10)
+        }
+    })
+    clientTimestamp: number;
 
     @Column({ name: 'conversation_id', type: 'uuid' })
     conversationId: string;

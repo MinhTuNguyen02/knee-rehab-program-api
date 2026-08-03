@@ -56,16 +56,17 @@ export class ChatService {
 
         const qb = this.messageRepo.createQueryBuilder('message')
             .where('message.conversation_id = :conversationId', { conversationId: conversation.id })
-            .orderBy('message.sentAt', 'DESC')
+            .orderBy('message.clientTimestamp', 'DESC', 'NULLS LAST')
+            .addOrderBy('message.sentAt', 'DESC')
             .addOrderBy('message.id', 'DESC')
             .take(limit + 1);
 
         if (before) {
-            qb.andWhere('message.sentAt < :before', { before: new Date(before) });
+            qb.andWhere('message.clientTimestamp < :before', { before });
         }
 
         if (after) {
-            qb.andWhere('message.sentAt > :after', { after: new Date(after) });
+            qb.andWhere('message.clientTimestamp > :after', { after });
         }
 
         const messages = await qb.getMany();
@@ -93,11 +94,18 @@ export class ChatService {
 
         if (!conversation) throw new NotFoundException('Conversation not found');
 
+        // Check for existing message to prevent duplicates (Offline-First Deduplication)
+        const existingMessage = await this.messageRepo.findOne({ where: { id: dto.id } });
+        if (existingMessage) {
+            return existingMessage;
+        }
+
         // 1. DB TRANSACTION TO ENSURE ATOMICITY
         const { savedMessage, savedNotifications } = await this.dataSource.transaction(async (manager) => {
 
-            // A. Create and save Message
             const message = manager.create(Message, {
+                id: dto.id,
+                clientTimestamp: dto.client_timestamp,
                 conversationId: conversation.id,
                 senderType: SenderType.PATIENT,
                 senderId: patientId,
@@ -213,16 +221,17 @@ export class ChatService {
 
         const qb = this.messageRepo.createQueryBuilder('message')
             .where('message.conversation_id = :conversationId', { conversationId: conversation.id })
-            .orderBy('message.sentAt', 'DESC')
+            .orderBy('message.clientTimestamp', 'DESC', 'NULLS LAST')
+            .addOrderBy('message.sentAt', 'DESC')
             .addOrderBy('message.id', 'DESC')
             .take(limit + 1);
 
         if (before) {
-            qb.andWhere('message.sentAt < :before', { before: new Date(before) });
+            qb.andWhere('message.clientTimestamp < :before', { before });
         }
 
         if (after) {
-            qb.andWhere('message.sentAt > :after', { after: new Date(after) });
+            qb.andWhere('message.clientTimestamp > :after', { after });
         }
 
         const messages = await qb.getMany();
@@ -248,11 +257,18 @@ export class ChatService {
             throw new NotFoundException('Conversation not found');
         }
 
+        // Check for existing message to prevent duplicates (Offline-First Deduplication)
+        const existingMessage = await this.messageRepo.findOne({ where: { id: dto.id } });
+        if (existingMessage) {
+            return existingMessage;
+        }
+
         // 1. DB TRANSACTION
         const { savedMessage, savedNotification } = await this.dataSource.transaction(async (manager) => {
 
-            // A. Create and save Message
             const message = manager.create(Message, {
+                id: dto.id,
+                clientTimestamp: dto.client_timestamp,
                 conversationId: conversation.id,
                 senderType: SenderType.STAFF,
                 senderId: staffId,

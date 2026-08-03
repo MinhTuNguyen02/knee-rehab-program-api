@@ -10,15 +10,23 @@ export class GetMessagesQueryDto {
     limit?: number = 20;
 
     @IsOptional()
-    @IsISO8601()
-    before?: string;
+    @Type(() => Number)
+    before?: number;
 
     @IsOptional()
-    @IsISO8601()
-    after?: string;
+    @Type(() => Number)
+    after?: number;
 }
 
 export class CreateMessageDto {
+    @IsString()
+    @IsNotEmpty({ message: 'Message ID is required' })
+    id: string;
+
+    @IsInt()
+    @IsNotEmpty({ message: 'Client timestamp is required' })
+    client_timestamp: number;
+
     @Transform(({ value }) => {
         if (typeof value === 'string') {
             return escapeHtml(value.trim());
