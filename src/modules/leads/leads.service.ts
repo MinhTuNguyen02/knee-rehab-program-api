@@ -62,7 +62,7 @@ export class LeadsService {
             const patientPortalUrl = this.configService.get<string>('PATIENT_PORTAL_URL') ?? 'http://localhost:3003';
 
             try {
-                await this.mailerService.sendMail({
+                this.mailerService.sendMail({
                     to: savedPatient.email,
                     subject: 'Welcome to KRPS - Your account is ready',
                     html: `
