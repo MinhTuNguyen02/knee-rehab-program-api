@@ -56,17 +56,16 @@ export class ChatService {
 
         const qb = this.messageRepo.createQueryBuilder('message')
             .where('message.conversation_id = :conversationId', { conversationId: conversation.id })
-            .orderBy('message.clientTimestamp', 'DESC', 'NULLS LAST')
-            .addOrderBy('message.sentAt', 'DESC')
+            .orderBy('COALESCE(message.client_timestamp, EXTRACT(EPOCH FROM message.sent_at) * 1000)', 'DESC')
             .addOrderBy('message.id', 'DESC')
             .take(limit + 1);
 
         if (before) {
-            qb.andWhere('message.clientTimestamp < :before', { before });
+            qb.andWhere('COALESCE(message.client_timestamp, EXTRACT(EPOCH FROM message.sent_at) * 1000) < :before', { before });
         }
 
         if (after) {
-            qb.andWhere('message.clientTimestamp > :after', { after });
+            qb.andWhere('COALESCE(message.client_timestamp, EXTRACT(EPOCH FROM message.sent_at) * 1000) > :after', { after });
         }
 
         const messages = await qb.getMany();
@@ -220,18 +219,17 @@ export class ChatService {
         const { limit = 20, before, after } = query;
 
         const qb = this.messageRepo.createQueryBuilder('message')
-            .where('message.conversation_id = :conversationId', { conversationId: conversation.id })
-            .orderBy('message.clientTimestamp', 'DESC', 'NULLS LAST')
-            .addOrderBy('message.sentAt', 'DESC')
+            .where('message.conversation_id = :conversationId', { conversationId })
+            .orderBy('COALESCE(message.client_timestamp, EXTRACT(EPOCH FROM message.sent_at) * 1000)', 'DESC')
             .addOrderBy('message.id', 'DESC')
             .take(limit + 1);
 
         if (before) {
-            qb.andWhere('message.clientTimestamp < :before', { before });
+            qb.andWhere('COALESCE(message.client_timestamp, EXTRACT(EPOCH FROM message.sent_at) * 1000) < :before', { before });
         }
 
         if (after) {
-            qb.andWhere('message.clientTimestamp > :after', { after });
+            qb.andWhere('COALESCE(message.client_timestamp, EXTRACT(EPOCH FROM message.sent_at) * 1000) > :after', { after });
         }
 
         const messages = await qb.getMany();
