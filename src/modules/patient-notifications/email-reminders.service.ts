@@ -91,7 +91,7 @@ export class EmailRemindersService {
                             <p style="font-size: 16px; line-height: 1.5;">Please take 2 minutes to complete a quick follow-up assessment:</p>
                             
                             <a href="${assessPortalUrl}"
-                               style="display:inline-block;padding:12px 24px;background:#0ea5e9;color:#fff;text-weight:bold;text-decoration:none;border-radius:6px;margin:20px 0;">
+                               style="display:inline-block;padding:12px 24px;background:#007a87;color:#fff;text-weight:bold;text-decoration:none;border-radius:6px;margin:20px 0;">
                                 Start Follow-up Assessment
                             </a>
                             
