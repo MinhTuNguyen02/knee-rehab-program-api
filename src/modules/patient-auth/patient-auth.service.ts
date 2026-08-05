@@ -105,17 +105,18 @@ export class PatientAuthService {
             this.configService.get<string>('PATIENT_PORTAL_URL') ?? 'http://localhost:3003';
         const resetLink = `${patientPortalUrl}/reset-password?token=${plainToken}`;
 
-        this.mailerService.sendMail({
-            to: patient.email,
-            subject: 'KRPS — Reset your password',
-            html: `
+        try {
+            await this.mailerService.sendMail({
+                to: patient.email,
+                subject: 'KRPS — Reset your password',
+                html: `
                 <div style="font-family: sans-serif; max-width: 560px; margin: 0 auto;">
                     <h2>Reset your password</h2>
                     <p>Hi ${patient.firstName},</p>
                     <p>We received a request to reset your password for your KRPS account.</p>
                     <p>Click the button below to reset your password. This link expires in <strong>1 hour</strong>.</p>
                     <a href="${resetLink}" 
-                       style="display:inline-block;padding:12px 24px;background:#1d4ed8;color:#fff;text-decoration:none;border-radius:6px;margin:16px 0;">
+                       style="display:inline-block;padding:12px 24px;background:#007a87;color:#fff;text-decoration:none;border-radius:6px;margin:16px 0;">
                         Reset Password
                     </a>
                     <p style="color:#666;font-size:13px;">If you didn't request this, you can safely ignore this email.</p>
@@ -123,9 +124,10 @@ export class PatientAuthService {
                     <p style="color:#999;font-size:12px;">KRPS — Educational assessment tool. Not a substitute for medical advice.</p>
                 </div>
             `,
-        }).catch((error) => {
+            });
+        } catch (error) {
             this.logger.error('Failed to send password reset email', error);
-        });    // Do not throw - still return success to prevent info leak
+        }    // Do not throw - still return success to prevent info leak
 
         return { data: { message: 'If an account with this email exists, a reset link has been sent.' } };
     }

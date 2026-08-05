@@ -34,14 +34,17 @@ import { ScheduleModule } from '@nestjs/schedule';
     MailerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        // const port = parseInt(config.get<string>('SMTP_PORT') || '465', 10);
-        const port = 465;
+        const port = parseInt(config.get<string>('SMTP_PORT') || '587', 10);
+
         const smtpUser = config.get<string>('SMTP_USER') || '';
+
+        const fromEmail = config.get<string>('SMTP_FROM_EMAIL') || '';
+
         return {
           transport: {
             host: config.get<string>('SMTP_HOST'),
             port: port,
-            secure: true,
+            secure: port === 465,
             auth: {
               user: smtpUser,
               pass: config.get<string>('SMTP_PASS'),
@@ -52,7 +55,7 @@ import { ScheduleModule } from '@nestjs/schedule';
             },
           },
           defaults: {
-            from: `"KRPS Portal" <${smtpUser}>`,
+            from: `"KRPS Portal" <${fromEmail}>`,
           },
         };
       },

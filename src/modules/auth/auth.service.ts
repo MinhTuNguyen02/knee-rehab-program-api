@@ -96,49 +96,55 @@ export class AuthService {
         return { message: 'Password changed successfully' };
     }
 
-    async forgotPassword(dto: ForgotPasswordDto): Promise<{ resetToken: string; message: string }> {
+    async forgotPassword(dto: ForgotPasswordDto): Promise<{ message: string }> {
         const user = await this.userRepository.findOneBy({ email: dto.email.toLowerCase() });
         if (!user) {
             return {
-                resetToken: '',
                 message: 'If a user with this email exists, a reset token has been generated',
             };
         }
 
-        const token = crypto.randomUUID();
-        user.resetToken = token;
+        const plainToken = crypto.randomBytes(32).toString('hex');
+        const hashedToken = crypto.createHash('sha256').update(plainToken).digest('hex');
+
+        user.resetToken = hashedToken;
         user.resetTokenExpiry = new Date(Date.now() + 3600 * 1000); // 1 hour expiry
 
         await this.userRepository.save(user);
 
         // Construct reset link
-        const resetLink = `http://localhost:3002/reset-password?token=${token}`;
+        const frontendUrl = this.configService.get<string>('CLINIC_URL');
+        const resetLink = `${frontendUrl}/reset-password?token=${plainToken}`;
 
         // Attempt to send email
         const smtpHost = this.configService.get<string>('SMTP_HOST');
         if (smtpHost) {
-            this.mailerService.sendMail({
-                to: user.email,
-                subject: 'Password Reset Request',
-                text: `You requested a password reset. Click here to reset your password: ${resetLink}`,
-                html: `<p>You requested a password reset. Click <a href="${resetLink}">here</a> to reset your password.</p>`,
-            }).catch(error => {
+            try {
+                await this.mailerService.sendMail({
+                    to: user.email,
+                    subject: 'Password Reset Request',
+                    text: `You requested a password reset. Click here to reset your password: ${resetLink}`,
+                    html: `<p>You requested a password reset. Click <a href="${resetLink}">here</a> to reset your password.</p>`,
+                });
+            } catch (error) {
                 console.error('Failed to send email, logging link instead:', resetLink);
                 console.error(error);
-            });
+            };
         } else {
             console.log('No SMTP configured. Logging link instead:', resetLink);
         }
 
         // We return success even if email failed or user didn't exist
         return {
-            resetToken: token,
             message: 'If a user with this email exists, a reset token has been generated',
         };
     }
 
     async resetPassword(dto: ResetPasswordDto): Promise<{ message: string }> {
-        const user = await this.userRepository.findOneBy({ resetToken: dto.token });
+        const hashedToken = crypto.createHash('sha256').update(dto.token).digest('hex');
+
+        const user = await this.userRepository.findOneBy({ resetToken: hashedToken });
+
         if (!user || !user.resetTokenExpiry || user.resetTokenExpiry < new Date()) {
             throw new BadRequestException('Invalid or expired token');
         }
