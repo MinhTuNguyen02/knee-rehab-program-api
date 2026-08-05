@@ -34,7 +34,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     MailerModule.forRootAsync({
       inject: [ConfigService],
       useFactory: (config: ConfigService) => {
-        // const port = parseInt(config.get<string>('SMTP_PORT') || '587', 10);
+        // const port = parseInt(config.get<string>('SMTP_PORT') || '465', 10);
         const port = 465;
         const smtpUser = config.get<string>('SMTP_USER') || '';
         return {
@@ -46,6 +46,7 @@ import { ScheduleModule } from '@nestjs/schedule';
               user: smtpUser,
               pass: config.get<string>('SMTP_PASS'),
             },
+            family: 4,
             tls: {
               rejectUnauthorized: false,
             },
