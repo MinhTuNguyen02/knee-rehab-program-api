@@ -36,4 +36,8 @@ export class CreateMessageDto {
     @IsString()
     @IsNotEmpty({ message: 'Message body cannot be empty or just spaces' })
     body: string;
+
+    @IsOptional()
+    @IsString()
+    replyToMessageId?: string;
 }

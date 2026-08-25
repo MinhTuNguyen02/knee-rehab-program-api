@@ -12,6 +12,7 @@ import { Repository } from 'typeorm';
 import { Patient } from '../assessments/entities/patient.entity';
 import { User } from '../auth/entities/user.entity';
 import { Logger } from '@nestjs/common';
+import { ReactionSenderType } from './entities/message-reaction.entity';
 
 @WebSocketGateway({
     cors: {
@@ -74,6 +75,10 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
             client.on('typing:stop', async (data: { conversationId: string }) => {
                 await this.handleTypingStop(client, data);
+            });
+
+            client.on('reaction:toggle', async (data: { messageId: string; conversationId: string; emoji: string }) => {
+                await this.handleReactionToggle(client, data);
             });
 
             if (userType === 'patient') {
@@ -192,7 +197,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     private async handleMessageSend(
         client: Socket,
-        data: { conversationId: string; body: string; id: string; client_timestamp: number },
+        data: { conversationId: string; body: string; id: string; client_timestamp: number; replyToMessageId?: string },
         callback?: Function
     ) {
         const userInfo = this.connectedClients.get(client.id);
@@ -206,6 +211,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
                     id: data.id,
                     client_timestamp: data.client_timestamp,
                     body: data.body,
+                    replyToMessageId: data.replyToMessageId,
                 });
 
                 conversationId = client.data.conversationId;
@@ -213,10 +219,11 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
                 message = await this.chatService.sendStaffMessage(
                     data.conversationId,
                     userInfo.userId,
-                    { 
+                    {
                         id: data.id,
                         client_timestamp: data.client_timestamp,
-                        body: data.body 
+                        body: data.body,
+                        replyToMessageId: data.replyToMessageId,
                     },
                 );
 
@@ -322,5 +329,34 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         client.to(`conversation:${conversationId}`).emit('typing:stop', {
             userType: userInfo.userType
         });
+    }
+
+    private async handleReactionToggle(
+        client: Socket,
+        data: { messageId: string; conversationId: string; emoji: string },
+    ) {
+        const userInfo = this.connectedClients.get(client.id);
+        if (!userInfo) return;
+
+        try {
+            const senderType = userInfo.userType === 'patient'
+                ? ReactionSenderType.PATIENT
+                : ReactionSenderType.STAFF;
+
+            const result = await this.chatService.toggleReaction(
+                data.messageId,
+                data.conversationId,
+                userInfo.userId,
+                senderType,
+                data.emoji,
+            );
+
+            // Broadcast to entire room (including sender) so everyone sees the update
+            this.server.to(`conversation:${result.conversationId}`).emit('reaction:update', result);
+
+            this.logger.log(`[reaction:toggle] ${userInfo.userType} ${userInfo.userId} reacted ${data.emoji} on message ${data.messageId}`);
+        } catch (error) {
+            this.logger.error(`[reaction:toggle] error: ${error.message}`);
+        }
     }
 }

@@ -46,4 +46,11 @@ export class Message {
     })
     @JoinColumn({ name: 'conversation_id' })
     conversation: Conversation;
+
+    @Column({ name: 'reply_to_message_id', type: 'uuid', nullable: true })
+    replyToMessageId?: string;
+
+    @ManyToOne(() => Message, { nullable: true, onDelete: 'SET NULL' })
+    @JoinColumn({ name: 'reply_to_message_id' })
+    replyToMessage?: Message;
 }

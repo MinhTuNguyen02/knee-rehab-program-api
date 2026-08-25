@@ -1,8 +1,9 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, DataSource } from 'typeorm';
+import { Repository, IsNull, DataSource, In } from 'typeorm';
 import { Conversation } from './entities/conversations.entity';
 import { Message, SenderType } from './entities/messages.entity';
+import { MessageReaction, ReactionSenderType } from './entities/message-reaction.entity';
 import { CreateMessageDto, GetMessagesQueryDto } from './dto/chat.dto';
 import { PatientNotificationsService } from '../patient-notifications/patient-notifications.service';
 import { NotificationType, PatientNotification } from '../patient-notifications/entities/patient-notification.entity';
@@ -18,6 +19,8 @@ export class ChatService {
         private conversationRepo: Repository<Conversation>,
         @InjectRepository(Message)
         private messageRepo: Repository<Message>,
+        @InjectRepository(MessageReaction)
+        private reactionRepo: Repository<MessageReaction>,
         private readonly notificationsService: PatientNotificationsService,
         private readonly staffNotificationService: StaffNotificationsService,
         private dataSource: DataSource,
@@ -55,8 +58,10 @@ export class ChatService {
         const { limit = 20, before, after } = query;
 
         const qb = this.messageRepo.createQueryBuilder('message')
+            .leftJoinAndSelect('message.replyToMessage', 'replyToMessage')
             .where('message.conversation_id = :conversationId', { conversationId: conversation.id })
-            .orderBy('COALESCE(message.client_timestamp, EXTRACT(EPOCH FROM message.sent_at) * 1000)', 'DESC')
+            .addSelect('COALESCE(message.client_timestamp, EXTRACT(EPOCH FROM message.sent_at) * 1000)', 'sort_time')
+            .orderBy('sort_time', 'DESC')
             .addOrderBy('message.id', 'DESC')
             .take(limit + 1);
 
@@ -75,8 +80,10 @@ export class ChatService {
             messages.pop();
         }
 
+        const reactions = await this.getReactionsMap(messages.map(m => m.id));
+
         return {
-            data: messages,
+            data: messages.map(m => ({ ...m, reactions: reactions[m.id] || {} })),
             meta: {
                 hasMore,
                 limit,
@@ -109,6 +116,7 @@ export class ChatService {
                 senderType: SenderType.PATIENT,
                 senderId: patientId,
                 body: dto.body,
+                replyToMessageId: dto.replyToMessageId,
             });
             const savedMsg = await manager.save(message);
 
@@ -149,7 +157,12 @@ export class ChatService {
                 .catch((err: any) => this.logger.error(`FCM Broadcast Failed`, err.stack));
         }
 
-        return savedMessage;
+        const fullyLoadedMessage = await this.messageRepo.findOne({
+            where: { id: savedMessage.id },
+            relations: ['replyToMessage']
+        });
+
+        return fullyLoadedMessage || savedMessage;
     }
 
     // Patient side: Mark all staff messages as read in patient's conversation thread
@@ -219,8 +232,10 @@ export class ChatService {
         const { limit = 20, before, after } = query;
 
         const qb = this.messageRepo.createQueryBuilder('message')
+            .leftJoinAndSelect('message.replyToMessage', 'replyToMessage')
             .where('message.conversation_id = :conversationId', { conversationId })
-            .orderBy('COALESCE(message.client_timestamp, EXTRACT(EPOCH FROM message.sent_at) * 1000)', 'DESC')
+            .addSelect('COALESCE(message.client_timestamp, EXTRACT(EPOCH FROM message.sent_at) * 1000)', 'sort_time')
+            .orderBy('sort_time', 'DESC')
             .addOrderBy('message.id', 'DESC')
             .take(limit + 1);
 
@@ -271,6 +286,7 @@ export class ChatService {
                 senderType: SenderType.STAFF,
                 senderId: staffId,
                 body: dto.body,
+                replyToMessageId: dto.replyToMessageId,
             });
             const savedMsg = await manager.save(message);
 
@@ -305,7 +321,12 @@ export class ChatService {
                 .catch((err: any) => this.logger.error(`FCM Push Failed for notification ${savedNotification.id}`, err.stack));
         }
 
-        return savedMessage;
+        const fullyLoadedMessage = await this.messageRepo.findOne({
+            where: { id: savedMessage.id },
+            relations: ['replyToMessage']
+        });
+
+        return fullyLoadedMessage || savedMessage;
     }
 
     // Staff side: Mark all patient messages as read in conversation thread
@@ -324,5 +345,74 @@ export class ChatService {
             .execute();
 
         return { success: true };
+    }
+
+    // Build a map: messageId -> { [emoji]: { count, reactorIds } }
+    async getReactionsMap(messageIds: string[]): Promise<Record<string, Record<string, { count: number; reactorIds: string[] }>>> {
+        if (messageIds.length === 0) return {};
+
+        const reactions = await this.reactionRepo.find({
+            where: { messageId: In(messageIds) },
+        });
+
+        const map: Record<string, Record<string, { count: number; reactorIds: string[] }>> = {};
+
+        for (const r of reactions) {
+            if (!map[r.messageId]) map[r.messageId] = {};
+            if (!map[r.messageId][r.emoji]) map[r.messageId][r.emoji] = { count: 0, reactorIds: [] };
+            map[r.messageId][r.emoji].count++;
+            map[r.messageId][r.emoji].reactorIds.push(r.senderId);
+        }
+
+        return map;
+    }
+
+    // Toggle a reaction (Facebook model: one emoji per user per message)
+    async toggleReaction(
+        messageId: string,
+        conversationId: string,
+        senderId: string,
+        senderType: ReactionSenderType,
+        emoji: string,
+    ): Promise<{ messageId: string; conversationId: string; reactions: Record<string, { count: number; reactorIds: string[] }> }> {
+        // Fallback: If conversationId is somehow missing from the client payload, fetch it from the message
+        let actualConvId = conversationId;
+        if (!actualConvId) {
+            const msg = await this.messageRepo.findOne({ where: { id: messageId } });
+            if (!msg) throw new Error(`Message ${messageId} not found`);
+            actualConvId = msg.conversationId;
+        }
+
+        const existing = await this.reactionRepo.findOne({
+            where: { messageId, senderId, senderType },
+        });
+
+        console.log(`[toggleReaction DEBUG] messageId=${messageId}, originalConvId=${conversationId}, actualConvId=${actualConvId}, senderId=${senderId}, senderType=${senderType}, emoji=${emoji}`);
+        console.log(`[toggleReaction DEBUG] existing=${JSON.stringify(existing)}`);
+
+        if (existing) {
+            if (existing.emoji === emoji) {
+                // Same emoji → toggle off
+                await this.reactionRepo.delete(existing.id);
+            } else {
+                // Different emoji → replace
+                existing.emoji = emoji;
+                await this.reactionRepo.save(existing);
+            }
+        } else {
+            // No existing reaction → create
+            const reaction = this.reactionRepo.create({
+                messageId,
+                conversationId: actualConvId,
+                senderId,
+                senderType,
+                emoji,
+            });
+            await this.reactionRepo.save(reaction);
+        }
+
+        // Return updated reactions for this message
+        const map = await this.getReactionsMap([messageId]);
+        return { messageId, conversationId: actualConvId, reactions: map[messageId] || {} };
     }
 }

@@ -6,6 +6,7 @@ import { ChatService } from "./chat.service";
 import { ChatGateway } from "./chat.gateway";
 import { Conversation } from "./entities/conversations.entity";
 import { Message } from "./entities/messages.entity";
+import { MessageReaction } from "./entities/message-reaction.entity";
 import { Patient } from "../assessments/entities/patient.entity";
 import { User } from "../auth/entities/user.entity";
 import { JwtModule } from "@nestjs/jwt";
@@ -15,7 +16,7 @@ import { StaffNotificationsModule } from "../staff-notifications/staff-notificat
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([Conversation, Message, Patient, User]),
+        TypeOrmModule.forFeature([Conversation, Message, MessageReaction, Patient, User]),
         PatientNotificationsModule,
         StaffNotificationsModule,
         JwtModule.registerAsync({
