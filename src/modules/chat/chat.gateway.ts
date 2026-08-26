@@ -197,7 +197,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     private async handleMessageSend(
         client: Socket,
-        data: { conversationId: string; body: string; id: string; client_timestamp: number; replyToMessageId?: string },
+        data: { conversationId: string; body?: string; id: string; client_timestamp: number; replyToMessageId?: string; imageUrl?: string },
         callback?: Function
     ) {
         const userInfo = this.connectedClients.get(client.id);
@@ -212,6 +212,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
                     client_timestamp: data.client_timestamp,
                     body: data.body,
                     replyToMessageId: data.replyToMessageId,
+                    imageUrl: data.imageUrl,
                 });
 
                 conversationId = client.data.conversationId;
@@ -224,6 +225,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
                         client_timestamp: data.client_timestamp,
                         body: data.body,
                         replyToMessageId: data.replyToMessageId,
+                        imageUrl: data.imageUrl,
                     },
                 );
 

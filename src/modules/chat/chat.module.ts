@@ -1,9 +1,13 @@
 import { Module } from "@nestjs/common";
 import { TypeOrmModule } from "@nestjs/typeorm";
+import { MulterModule } from "@nestjs/platform-express";
+import { memoryStorage } from "multer";
 import { ChatController } from "./chat.controller";
 import { StaffChatController } from "./staff-chat.controller";
+import { ChatUploadController, StaffChatUploadController } from "./chat-upload.controller";
 import { ChatService } from "./chat.service";
 import { ChatGateway } from "./chat.gateway";
+import { CloudinaryService } from "./cloudinary.service";
 import { Conversation } from "./entities/conversations.entity";
 import { Message } from "./entities/messages.entity";
 import { MessageReaction } from "./entities/message-reaction.entity";
@@ -17,6 +21,7 @@ import { StaffNotificationsModule } from "../staff-notifications/staff-notificat
 @Module({
     imports: [
         TypeOrmModule.forFeature([Conversation, Message, MessageReaction, Patient, User]),
+        MulterModule.register({ storage: memoryStorage() }),
         PatientNotificationsModule,
         StaffNotificationsModule,
         JwtModule.registerAsync({
@@ -30,8 +35,8 @@ import { StaffNotificationsModule } from "../staff-notifications/staff-notificat
             },
         }),
     ],
-    controllers: [ChatController, StaffChatController],
-    providers: [ChatService, ChatGateway],
+    controllers: [ChatController, StaffChatController, ChatUploadController, StaffChatUploadController],
+    providers: [ChatService, ChatGateway, CloudinaryService],
     exports: [ChatService],
 })
 export class ChatModule { }

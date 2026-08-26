@@ -1,4 +1,4 @@
-import { IsString, IsNotEmpty, IsOptional, IsInt, Min, IsISO8601 } from 'class-validator';
+import { IsString, IsNotEmpty, IsOptional, IsInt, Min, IsUrl } from 'class-validator';
 import { Type, Transform } from 'class-transformer';
 import escapeHtml from 'escape-html';
 
@@ -33,11 +33,15 @@ export class CreateMessageDto {
         }
         return value;
     })
+    @IsOptional()
     @IsString()
-    @IsNotEmpty({ message: 'Message body cannot be empty or just spaces' })
-    body: string;
+    body?: string;
 
     @IsOptional()
     @IsString()
     replyToMessageId?: string;
+
+    @IsOptional()
+    @IsString()
+    imageUrl?: string;
 }

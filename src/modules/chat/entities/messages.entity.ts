@@ -53,4 +53,7 @@ export class Message {
     @ManyToOne(() => Message, { nullable: true, onDelete: 'SET NULL' })
     @JoinColumn({ name: 'reply_to_message_id' })
     replyToMessage?: Message;
+
+    @Column({ name: 'image_url', type: 'text', nullable: true })
+    imageUrl?: string;
 }
