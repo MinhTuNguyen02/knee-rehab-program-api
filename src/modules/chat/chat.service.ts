@@ -1,4 +1,5 @@
 import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, DataSource, In } from 'typeorm';
 import { Conversation } from './entities/conversations.entity';
@@ -121,9 +122,22 @@ export class ChatService {
             });
             const savedMsg = await manager.save(message);
 
-            // B. Update LastMessageAt
+            // B. Calculate streak and update Conversation
+            let newStreakCount = conversation.streakCount || 0;
+            let newStreakActiveToday = conversation.streakActiveToday || false;
+            let newPatientMessagedToday = true;
+            let newStaffMessagedToday = conversation.staffMessagedToday || false;
+
+            if (newPatientMessagedToday && newStaffMessagedToday && !newStreakActiveToday) {
+                newStreakActiveToday = true;
+                newStreakCount += 1;
+            }
+
             await manager.update(Conversation, conversation.id, {
                 lastMessageAt: savedMsg.sentAt,
+                streakCount: newStreakCount,
+                streakActiveToday: newStreakActiveToday,
+                patientMessagedToday: newPatientMessagedToday,
             });
 
             // C. Get all Staff (from User table)
@@ -135,7 +149,7 @@ export class ChatService {
                     userId: staff.id,
                     type: 'patient_message',
                     title: `New message from ${conversation.patient?.firstName || 'Patient'}`,
-                    body: dto.body || (dto.imageUrl ? '📷 Sent a picture' : ''),
+                    body: dto.body || (dto.imageUrl ? '📷 Sent a photo' : ''),
                     payload: {
                         conversationId: conversation.id,
                         messageId: savedMsg.id,
@@ -209,6 +223,8 @@ export class ChatService {
                 patientId: conv.patientId,
                 createdAt: conv.createdAt,
                 lastMessageAt: conv.lastMessageAt,
+                streakCount: conv.streakCount,
+                streakActiveToday: conv.streakActiveToday,
                 patient: conv.patient,
                 lastMessage: lastMessage ? {
                     id: lastMessage.id,
@@ -294,9 +310,22 @@ export class ChatService {
             });
             const savedMsg = await manager.save(message);
 
-            // B. Update LastMessageAt of Conversation
+            // B. Calculate streak and update Conversation
+            let newStreakCount = conversation.streakCount || 0;
+            let newStreakActiveToday = conversation.streakActiveToday || false;
+            let newPatientMessagedToday = conversation.patientMessagedToday || false;
+            let newStaffMessagedToday = true;
+
+            if (newPatientMessagedToday && newStaffMessagedToday && !newStreakActiveToday) {
+                newStreakActiveToday = true;
+                newStreakCount += 1;
+            }
+
             await manager.update(Conversation, conversation.id, {
                 lastMessageAt: savedMsg.sentAt,
+                streakCount: newStreakCount,
+                streakActiveToday: newStreakActiveToday,
+                staffMessagedToday: newStaffMessagedToday,
             });
 
             // C. Create and save Notification for Patient
@@ -418,5 +447,33 @@ export class ChatService {
         // Return updated reactions for this message
         const map = await this.getReactionsMap([messageId]);
         return { messageId, conversationId: actualConvId, reactions: map[messageId] || {} };
+    }
+
+    // Cron job to reset streaks at midnight
+    @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, { timeZone: 'Asia/Ho_Chi_Minh' }) // Run at 00:00 Vietnam time
+    async resetStreaksAtMidnight() {
+        this.logger.log('Running midnight streak reset cron job...');
+        
+        await this.dataSource.transaction(async (manager) => {
+            // 1. Reset streaks for conversations that didn't maintain it today
+            await manager.createQueryBuilder()
+                .update(Conversation)
+                .set({ streakCount: 0 })
+                .where('streak_active_today = :active', { active: false })
+                .andWhere('streak_count > 0')
+                .execute();
+
+            // 2. Reset flags for all conversations for the new day
+            await manager.createQueryBuilder()
+                .update(Conversation)
+                .set({
+                    patientMessagedToday: false,
+                    staffMessagedToday: false,
+                    streakActiveToday: false,
+                })
+                .execute();
+        });
+
+        this.logger.log('Midnight streak reset completed.');
     }
 }

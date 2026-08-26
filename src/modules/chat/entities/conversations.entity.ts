@@ -23,4 +23,16 @@ export class Conversation {
     @ManyToOne(() => Patient, { eager: false })
     @JoinColumn({ name: 'patient_id' })
     patient: Patient;
+
+    @Column({ name: 'streak_count', type: 'int', default: 0 })
+    streakCount: number;
+
+    @Column({ name: 'streak_active_today', type: 'boolean', default: false })
+    streakActiveToday: boolean;
+
+    @Column({ name: 'patient_messaged_today', type: 'boolean', default: false })
+    patientMessagedToday: boolean;
+
+    @Column({ name: 'staff_messaged_today', type: 'boolean', default: false })
+    staffMessagedToday: boolean;
 }
