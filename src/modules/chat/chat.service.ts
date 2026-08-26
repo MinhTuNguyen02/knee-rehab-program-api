@@ -254,8 +254,10 @@ export class ChatService {
             messages.pop();
         }
 
+        const reactions = await this.getReactionsMap(messages.map(m => m.id));
+
         return {
-            data: messages,
+            data: messages.map(m => ({ ...m, reactions: reactions[m.id] || {} })),
             meta: {
                 hasMore,
                 limit,
