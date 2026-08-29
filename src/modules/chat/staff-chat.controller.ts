@@ -6,6 +6,21 @@ import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 
+// Separate no-auth controller for debug operations
+@ApiTags('debug')
+@Controller('debug/chat')
+export class ChatDebugController {
+    constructor(private readonly chatService: ChatService) { }
+
+    @Post('reset-streaks')
+    @ApiOperation({ summary: '[DEBUG] Manually trigger the midnight streak reset. REMOVE IN PRODUCTION.' })
+    @ApiResponse({ status: 200, description: 'Streak reset triggered successfully.' })
+    async triggerStreakReset() {
+        await this.chatService.resetStreaksAtMidnight();
+        return { success: true, message: 'Streak reset triggered.' };
+    }
+}
+
 @ApiTags('staff/chat')
 @Controller('staff/chat')
 @Roles('admin')
@@ -43,6 +58,14 @@ export class StaffChatController {
     @ApiResponse({ status: 201, description: 'Message sent successfully.' })
     sendMessage(@Req() req: any, @Param('id') conversationId: string, @Body() dto: CreateMessageDto) {
         return this.chatService.sendStaffMessage(conversationId, req.user.id, dto);
+    }
+
+    @Post('debug/reset-streaks')
+    @ApiOperation({ summary: '[DEBUG] Manually trigger the midnight streak reset cron job' })
+    @ApiResponse({ status: 200, description: 'Streak reset triggered successfully.' })
+    async triggerStreakReset() {
+        await this.chatService.resetStreaksAtMidnight();
+        return { success: true, message: 'Streak reset triggered successfully.' };
     }
 
     @Patch('conversations/:id/read')

@@ -53,6 +53,11 @@ export class ChatService {
         return conversation;
     }
 
+    // Get conversation by its ID
+    async getConversationById(conversationId: string): Promise<Conversation | null> {
+        return this.conversationRepo.findOne({ where: { id: conversationId } });
+    }
+
     // Patient side: Get messages for current patient
     async getMessages(patientId: string, query: GetMessagesQueryDto) {
         const conversation = await this.getOrCreateConversation(patientId);
@@ -122,11 +127,15 @@ export class ChatService {
             });
             const savedMsg = await manager.save(message);
 
-            // B. Calculate streak and update Conversation
-            let newStreakCount = conversation.streakCount || 0;
-            let newStreakActiveToday = conversation.streakActiveToday || false;
-            let newPatientMessagedToday = true;
-            let newStaffMessagedToday = conversation.staffMessagedToday || false;
+            // B. Re-fetch fresh conversation data inside transaction to get latest flags
+            const freshConv = await manager.findOne(Conversation, { where: { id: conversation.id } });
+            if (!freshConv) throw new Error('Conversation disappeared during transaction');
+
+            // Calculate streak
+            let newStreakCount = freshConv.streakCount || 0;
+            let newStreakActiveToday = freshConv.streakActiveToday || false;
+            const newPatientMessagedToday = true;
+            const newStaffMessagedToday = freshConv.staffMessagedToday || false;
 
             if (newPatientMessagedToday && newStaffMessagedToday && !newStreakActiveToday) {
                 newStreakActiveToday = true;
@@ -310,11 +319,15 @@ export class ChatService {
             });
             const savedMsg = await manager.save(message);
 
-            // B. Calculate streak and update Conversation
-            let newStreakCount = conversation.streakCount || 0;
-            let newStreakActiveToday = conversation.streakActiveToday || false;
-            let newPatientMessagedToday = conversation.patientMessagedToday || false;
-            let newStaffMessagedToday = true;
+            // B. Re-fetch fresh conversation data inside transaction to get latest flags
+            const freshConv = await manager.findOne(Conversation, { where: { id: conversation.id } });
+            if (!freshConv) throw new Error('Conversation disappeared during transaction');
+
+            // Calculate streak
+            let newStreakCount = freshConv.streakCount || 0;
+            let newStreakActiveToday = freshConv.streakActiveToday || false;
+            const newPatientMessagedToday = freshConv.patientMessagedToday || false;
+            const newStaffMessagedToday = true;
 
             if (newPatientMessagedToday && newStaffMessagedToday && !newStreakActiveToday) {
                 newStreakActiveToday = true;
@@ -453,9 +466,12 @@ export class ChatService {
     @Cron(CronExpression.EVERY_DAY_AT_MIDNIGHT, { timeZone: 'Asia/Ho_Chi_Minh' }) // Run at 00:00 Vietnam time
     async resetStreaksAtMidnight() {
         this.logger.log('Running midnight streak reset cron job...');
-        
+
+        // IMPORTANT: Order matters!
+        // Step 1 first: zero-out streaks for conversations that did NOT complete their streak today.
+        // This must run BEFORE we clear streakActiveToday, otherwise we lose the state needed to decide.
         await this.dataSource.transaction(async (manager) => {
-            // 1. Reset streaks for conversations that didn't maintain it today
+            // 1. For conversations where streakActiveToday is false but streak > 0 → reset to 0 (missed)
             await manager.createQueryBuilder()
                 .update(Conversation)
                 .set({ streakCount: 0 })
@@ -463,7 +479,7 @@ export class ChatService {
                 .andWhere('streak_count > 0')
                 .execute();
 
-            // 2. Reset flags for all conversations for the new day
+            // 2. Now reset all daily flags for the new day
             await manager.createQueryBuilder()
                 .update(Conversation)
                 .set({

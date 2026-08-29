@@ -242,6 +242,15 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             // Broadcast to everyone else in the conversation room
             client.to(`conversation:${conversationId}`).emit('message:receive', message);
 
+            // Broadcast streak update to the whole conversation room (both sides)
+            const freshConv = await this.chatService.getConversationById(conversationId);
+            if (freshConv) {
+                this.server.to(`conversation:${conversationId}`).emit('streak:update', {
+                    conversationId,
+                    streakCount: freshConv.streakCount,
+                    streakActiveToday: freshConv.streakActiveToday,
+                });
+            }
 
             // Update inbox for all staff
             this.server.to('staff_inbox').emit('conversation:update', { conversationId: conversationId, lastMessage: message });

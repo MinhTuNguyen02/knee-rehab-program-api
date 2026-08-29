@@ -3,7 +3,7 @@ import { TypeOrmModule } from "@nestjs/typeorm";
 import { MulterModule } from "@nestjs/platform-express";
 import { memoryStorage } from "multer";
 import { ChatController } from "./chat.controller";
-import { StaffChatController } from "./staff-chat.controller";
+import { StaffChatController, ChatDebugController } from "./staff-chat.controller";
 import { ChatUploadController, StaffChatUploadController } from "./chat-upload.controller";
 import { ChatService } from "./chat.service";
 import { ChatGateway } from "./chat.gateway";
@@ -35,7 +35,7 @@ import { StaffNotificationsModule } from "../staff-notifications/staff-notificat
             },
         }),
     ],
-    controllers: [ChatController, StaffChatController, ChatUploadController, StaffChatUploadController],
+    controllers: [ChatController, StaffChatController, ChatDebugController, ChatUploadController, StaffChatUploadController],
     providers: [ChatService, ChatGateway, CloudinaryService],
     exports: [ChatService],
 })
