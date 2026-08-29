@@ -472,22 +472,20 @@ export class ChatService {
         // This must run BEFORE we clear streakActiveToday, otherwise we lose the state needed to decide.
         await this.dataSource.transaction(async (manager) => {
             // 1. For conversations where streakActiveToday is false but streak > 0 → reset to 0 (missed)
-            await manager.createQueryBuilder()
-                .update(Conversation)
-                .set({ streakCount: 0 })
-                .where('streak_active_today = :active', { active: false })
-                .andWhere('streak_count > 0')
-                .execute();
+            await manager.update(Conversation, 
+                { streakActiveToday: false }, 
+                { streakCount: 0 }
+            );
 
             // 2. Now reset all daily flags for the new day
-            await manager.createQueryBuilder()
-                .update(Conversation)
-                .set({
+            await manager.update(Conversation, 
+                {}, 
+                {
                     patientMessagedToday: false,
                     staffMessagedToday: false,
                     streakActiveToday: false,
-                })
-                .execute();
+                }
+            );
         });
 
         this.logger.log('Midnight streak reset completed.');
