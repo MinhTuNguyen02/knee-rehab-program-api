@@ -1,4 +1,4 @@
-import { Controller, Get, Patch, Body, Param, Query, UseGuards, Req, Post } from '@nestjs/common';
+import { Controller, Get, Patch, Body, Param, Query, UseGuards, Req, Post, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiResponse, ApiBearerAuth, ApiQuery } from '@nestjs/swagger';
 import { PatientDataService } from './patient-data.service';
 import { PatientAuthService } from '../patient-auth/patient-auth.service';
@@ -95,5 +95,16 @@ export class PatientDataController {
     @ApiResponse({ status: 200, description: 'FCM token saved.' })
     saveFcmToken(@Req() req: any, @Body() dto: SaveFcmTokenDto) {
         return this.patientAuthService.saveFcmToken(req.user.id, dto.fcmToken);
+    }
+
+    /**
+     * DELETE /patient/fcm-token
+     * Remove FCM token on logout
+     */
+    @Delete('fcm-token')
+    @ApiOperation({ summary: 'Remove FCM token on logout' })
+    @ApiResponse({ status: 200, description: 'FCM token removed.' })
+    deleteFcmToken(@Body() dto: SaveFcmTokenDto) {
+        return this.patientAuthService.deleteFcmToken(dto.fcmToken);
     }
 }

@@ -9,6 +9,7 @@ import { Repository } from 'typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
 import { MailerService } from '@nestjs-modules/mailer';
+import { PatientDeviceToken } from '../patient-notifications/entities/patient-device-token.entity';
 import * as bcrypt from 'bcrypt';
 import * as crypto from 'crypto';
 import { Patient } from '../assessments/entities/patient.entity';
@@ -24,6 +25,8 @@ export class PatientAuthService {
     constructor(
         @InjectRepository(Patient)
         private patientRepository: Repository<Patient>,
+        @InjectRepository(PatientDeviceToken)
+        private tokenRepository: Repository<PatientDeviceToken>,
         private jwtService: JwtService,
         private configService: ConfigService,
         private mailerService: MailerService,
@@ -195,8 +198,23 @@ export class PatientAuthService {
         patientId: string,
         fcmToken: string,
     ): Promise<{ data: { message: string } }> {
-        await this.patientRepository.update(patientId, { fcmToken });
+        let tokenRecord = await this.tokenRepository.findOne({ where: { token: fcmToken } });
+        if (tokenRecord) {
+            tokenRecord.patientId = patientId;
+            await this.tokenRepository.save(tokenRecord);
+        } else {
+            tokenRecord = this.tokenRepository.create({ patientId, token: fcmToken });
+            await this.tokenRepository.save(tokenRecord);
+        }
         return { data: { message: 'FCM token saved.' } };
+    }
+
+    // DELETE /patient/fcm-token
+    async deleteFcmToken(
+        fcmToken: string,
+    ): Promise<{ data: { message: string } }> {
+        await this.tokenRepository.delete({ token: fcmToken });
+        return { data: { message: 'FCM token deleted.' } };
     }
 
     // Helper: generate patient account from opt-in

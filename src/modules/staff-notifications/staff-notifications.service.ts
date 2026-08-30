@@ -2,8 +2,9 @@ import { Injectable, Inject, Logger, NotFoundException } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { StaffNotification } from './entities/staff-notification.entity';
+import { StaffDeviceToken } from './entities/staff-device-token.entity';
 import { User } from '../auth/entities/user.entity';
-import { getMessaging, Message } from 'firebase-admin/messaging';
+import { getMessaging, Message, MulticastMessage } from 'firebase-admin/messaging';
 import type { App } from 'firebase-admin/app';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { LessThan } from 'typeorm';
@@ -15,6 +16,8 @@ export class StaffNotificationsService {
     constructor(
         @InjectRepository(StaffNotification)
         private readonly notificationRepo: Repository<StaffNotification>,
+        @InjectRepository(StaffDeviceToken)
+        private readonly tokenRepo: Repository<StaffDeviceToken>,
         @InjectRepository(User)
         private readonly userRepo: Repository<User>,
         @Inject('FIREBASE_ADMIN')
@@ -42,8 +45,20 @@ export class StaffNotificationsService {
     }
 
     async saveFcmToken(userId: string, fcmToken: string) {
-        await this.userRepo.update(userId, { fcmToken });
+        let tokenRecord = await this.tokenRepo.findOne({ where: { token: fcmToken } });
+        if (tokenRecord) {
+            tokenRecord.userId = userId;
+            await this.tokenRepo.save(tokenRecord);
+        } else {
+            tokenRecord = this.tokenRepo.create({ userId, token: fcmToken });
+            await this.tokenRepo.save(tokenRecord);
+        }
         return { data: { message: 'FCM token saved.' } };
+    }
+
+    async deleteFcmToken(fcmToken: string) {
+        await this.tokenRepo.delete({ token: fcmToken });
+        return { data: { message: 'FCM token removed.' } };
     }
 
     // API: Get notifications
@@ -104,21 +119,23 @@ export class StaffNotificationsService {
         if (!notifications || notifications.length === 0) return;
 
         const userIds = notifications.map(n => n.userId);
-        const users = await this.userRepo.createQueryBuilder('user')
-            .where('user.id IN (:...userIds)', { userIds })
-            .andWhere('user.fcmToken IS NOT NULL')
-            .select(['user.id', 'user.fcmToken'])
+        
+        // Find all tokens for these users
+        const tokens = await this.tokenRepo.createQueryBuilder('token')
+            .where('token.user_id IN (:...userIds)', { userIds })
             .getMany();
+
+        if (tokens.length === 0) return;
 
         const messages: Message[] = [];
         const validTokens: string[] = [];
 
-        users.forEach(user => {
-            const notif = notifications.find(n => n.userId === user.id);
-            if (notif && user.fcmToken) {
-                validTokens.push(user.fcmToken);
+        tokens.forEach(tokenRecord => {
+            const notif = notifications.find(n => n.userId === tokenRecord.userId);
+            if (notif) {
+                validTokens.push(tokenRecord.token);
                 messages.push({
-                    token: user.fcmToken,
+                    token: tokenRecord.token,
                     data: {
                         type: notif.type,
                         id: notif.id,
@@ -149,11 +166,11 @@ export class StaffNotificationsService {
                 });
 
                 if (tokensToRemove.length > 0) {
-                    await this.userRepo.createQueryBuilder()
-                        .update(User)
-                        .set({ fcmToken: null })
-                        .where('fcm_token IN (:...tokensToRemove)', { tokensToRemove })
+                    await this.tokenRepo.createQueryBuilder()
+                        .delete()
+                        .where('token IN (:...tokensToRemove)', { tokensToRemove })
                         .execute();
+                    this.logger.log(`Removed ${tokensToRemove.length} invalid FCM tokens for staff`);
                 }
             }
         } catch (error) {

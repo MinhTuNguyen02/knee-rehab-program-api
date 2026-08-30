@@ -8,6 +8,7 @@ import { PatientAuthController } from './patient-auth.controller';
 import { PatientJwtStrategy } from './strategies/patient-jwt.strategy';
 import { PatientJwtAuthGuard } from './guards/patient-jwt-auth.guard';
 import { Patient } from '../assessments/entities/patient.entity';
+import { PatientDeviceToken } from '../patient-notifications/entities/patient-device-token.entity';
 import { ThrottlerModule } from '@nestjs/throttler';
 import { EmailThrottlerGuard } from './guards/email-throttler.guard';
 import { IpThrottlerGuard } from './guards/ip-throttler.guard';
@@ -15,7 +16,7 @@ import { PatientNotificationsModule } from '../patient-notifications/patient-not
 
 @Module({
     imports: [
-        TypeOrmModule.forFeature([Patient]),
+        TypeOrmModule.forFeature([Patient, PatientDeviceToken]),
         PassportModule.register({ defaultStrategy: 'patient-jwt' }),
         JwtModule.registerAsync({
             imports: [ConfigModule],

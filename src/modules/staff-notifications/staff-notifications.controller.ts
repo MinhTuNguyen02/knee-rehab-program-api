@@ -1,4 +1,4 @@
-import { Controller, Get, Post, Patch, Param, Body, UseGuards, Req, Query } from '@nestjs/common';
+import { Controller, Get, Post, Patch, Param, Body, UseGuards, Req, Query, Delete } from '@nestjs/common';
 import { ApiTags, ApiOperation, ApiBearerAuth } from '@nestjs/swagger';
 import { StaffNotificationsService } from './staff-notifications.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
@@ -14,6 +14,12 @@ export class StaffNotificationsController {
     @ApiOperation({ summary: 'Save FCM token for staff push notifications' })
     saveFcmToken(@Req() req: any, @Body('fcmToken') fcmToken: string) {
         return this.notificationsService.saveFcmToken(req.user.id, fcmToken);
+    }
+
+    @Delete('fcm-token')
+    @ApiOperation({ summary: 'Remove FCM token on logout' })
+    deleteFcmToken(@Body('fcmToken') fcmToken: string) {
+        return this.notificationsService.deleteFcmToken(fcmToken);
     }
 
     @Get('notifications')

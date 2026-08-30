@@ -2,8 +2,9 @@ import { Injectable, Inject, Logger, NotFoundException, ForbiddenException } fro
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull } from 'typeorm';
 import { PatientNotification, NotificationType } from './entities/patient-notification.entity';
+import { PatientDeviceToken } from './entities/patient-device-token.entity';
 import { Patient } from '../assessments/entities/patient.entity';
-import { getMessaging, Message } from 'firebase-admin/messaging';
+import { getMessaging, Message, MulticastMessage } from 'firebase-admin/messaging';
 import type { App } from 'firebase-admin/app';
 import { Cron } from '@nestjs/schedule';
 import { LessThan } from 'typeorm';
@@ -15,6 +16,8 @@ export class PatientNotificationsService {
     constructor(
         @InjectRepository(PatientNotification)
         private readonly notificationRepo: Repository<PatientNotification>,
+        @InjectRepository(PatientDeviceToken)
+        private readonly tokenRepo: Repository<PatientDeviceToken>,
         @InjectRepository(Patient)
         private readonly patientRepo: Repository<Patient>,
         @Inject('FIREBASE_ADMIN')
@@ -39,6 +42,24 @@ export class PatientNotificationsService {
         } catch (error) {
             this.logger.error('Failed to clean old patient notifications', error);
         }
+    }
+
+    async saveFcmToken(patientId: string, fcmToken: string) {
+        // Upsert token
+        let tokenRecord = await this.tokenRepo.findOne({ where: { token: fcmToken } });
+        if (tokenRecord) {
+            tokenRecord.patientId = patientId;
+            await this.tokenRepo.save(tokenRecord);
+        } else {
+            tokenRecord = this.tokenRepo.create({ patientId, token: fcmToken });
+            await this.tokenRepo.save(tokenRecord);
+        }
+        return { data: { message: 'FCM token saved.' } };
+    }
+
+    async deleteFcmToken(fcmToken: string) {
+        await this.tokenRepo.delete({ token: fcmToken });
+        return { data: { message: 'FCM token removed.' } };
     }
 
     // 1. Get lits noti
@@ -134,20 +155,20 @@ export class PatientNotificationsService {
 
     public async sendPush(patientId: string, notification: PatientNotification) {
         try {
-            const patient = await this.patientRepo.findOne({
-                where: { id: patientId },
-                select: ['fcmToken'],
+            const tokens = await this.tokenRepo.find({
+                where: { patientId },
+                select: ['token'],
             });
 
-            if (!patient || !patient.fcmToken) {
-                this.logger.log(`No FCM token for patient ${patientId}. Skipped push.`);
+            if (!tokens || tokens.length === 0) {
+                this.logger.log(`No FCM tokens for patient ${patientId}. Skipped push.`);
                 return;
             }
 
-            // Payload sending
-            const message: Message = {
-                token: patient.fcmToken,
+            const tokenStrings = tokens.map(t => t.token);
 
+            const message: MulticastMessage = {
+                tokens: tokenStrings,
                 data: {
                     type: notification.type,
                     id: notification.id,
@@ -158,20 +179,30 @@ export class PatientNotificationsService {
                 }
             };
 
-            const response = await getMessaging(this.firebaseApp).send(message);
-            this.logger.log(`Successfully sent FCM message: ${response}`);
+            const response = await getMessaging(this.firebaseApp).sendEachForMulticast(message);
+            this.logger.log(`Broadcasted FCM to Patient ${patientId}: ${response.successCount} successes, ${response.failureCount} failures.`);
 
+            if (response.failureCount > 0) {
+                const tokensToRemove: string[] = [];
+                response.responses.forEach((resp, idx) => {
+                    if (!resp.success && resp.error) {
+                        const code = resp.error.code;
+                        if (code === 'messaging/invalid-registration-token' || code === 'messaging/registration-token-not-registered') {
+                            tokensToRemove.push(tokenStrings[idx]);
+                        }
+                    }
+                });
+
+                if (tokensToRemove.length > 0) {
+                    await this.tokenRepo.createQueryBuilder()
+                        .delete()
+                        .where('token IN (:...tokensToRemove)', { tokensToRemove })
+                        .execute();
+                    this.logger.log(`Removed ${tokensToRemove.length} invalid FCM tokens for patient ${patientId}`);
+                }
+            }
         } catch (error: any) {
             this.logger.error(`Error sending FCM to patient ${patientId}:`, error);
-
-            // If token is no longer valid, remove token in DB
-            if (
-                error.code === 'messaging/invalid-registration-token' ||
-                error.code === 'messaging/registration-token-not-registered'
-            ) {
-                await this.patientRepo.update(patientId, { fcmToken: null });
-                this.logger.log(`Removed invalid FCM token for patient ${patientId}`);
-            }
         }
     }
 }
