@@ -34,6 +34,6 @@ export class PatientNotification {
     @JoinColumn({ name: 'patientId' })
     patient: Patient;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamptz' })
     createdAt: Date;
 }

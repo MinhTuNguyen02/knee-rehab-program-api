@@ -28,6 +28,6 @@ export class StaffNotification {
     @JoinColumn({ name: 'userId' })
     user: User;
 
-    @CreateDateColumn()
+    @CreateDateColumn({ type: 'timestamptz' })
     createdAt: Date;
 }

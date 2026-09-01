@@ -152,20 +152,50 @@ export class ChatService {
             // C. Get all Staff (from User table)
             const allStaff = await manager.find(User, { select: ['id'] });
 
-            // D. Create array of Notifications for all Staff
-            const notificationsToSave = allStaff.map(staff => {
-                return manager.create(StaffNotification, {
-                    userId: staff.id,
-                    type: 'patient_message',
-                    title: `New message from ${conversation.patient?.firstName || 'Patient'}`,
-                    body: dto.body || (dto.imageUrl ? '📷 Sent a photo' : ''),
-                    payload: {
-                        conversationId: conversation.id,
-                        messageId: savedMsg.id,
-                        link: `/messages`
-                    },
+            // D. Create or Update Notifications for all Staff
+            const notificationsToSave: StaffNotification[] = [];
+
+            for (const staff of allStaff) {
+                const recentNotifs = await manager.createQueryBuilder(StaffNotification, 'notif')
+                    .where('notif.userId = :userId', { userId: staff.id })
+                    .andWhere('notif.type = :type', { type: 'patient_message' })
+                    .andWhere('notif.readAt IS NULL')
+                    .andWhere("notif.createdAt >= NOW() - INTERVAL '5 minutes'")
+                    .getMany();
+
+                const existingNotif = recentNotifs.find(n => {
+                    const payloadObj = typeof n.payload === 'string' ? JSON.parse(n.payload) : n.payload;
+                    return payloadObj?.conversationId === conversation.id;
                 });
-            });
+
+                if (existingNotif) {
+                    const payloadObj = typeof existingNotif.payload === 'string' ? JSON.parse(existingNotif.payload) : (existingNotif.payload || {});
+                    const currentCount = payloadObj.count || 1;
+                    const newCount = currentCount + 1;
+                    
+                    existingNotif.body = `Bệnh nhân ${conversation.patient?.firstName || ''} đã gửi ${newCount} tin nhắn`;
+                    existingNotif.payload = {
+                        ...payloadObj,
+                        count: newCount,
+                        messageId: savedMsg.id,
+                    };
+                    notificationsToSave.push(existingNotif);
+                } else {
+                    const newNotif = manager.create(StaffNotification, {
+                        userId: staff.id,
+                        type: 'patient_message',
+                        title: `New message from ${conversation.patient?.firstName || 'Patient'}`,
+                        body: dto.body || (dto.imageUrl ? '📷 Sent a photo' : ''),
+                        payload: {
+                            conversationId: conversation.id,
+                            messageId: savedMsg.id,
+                            link: `/messages`,
+                            count: 1
+                        },
+                    });
+                    notificationsToSave.push(newNotif);
+                }
+            }
 
             const savedNotifs = await manager.save(notificationsToSave);
 
@@ -341,19 +371,48 @@ export class ChatService {
                 staffMessagedToday: newStaffMessagedToday,
             });
 
-            // C. Create and save Notification for Patient
-            const notification = manager.create(PatientNotification, {
-                patientId: conversation.patientId,
-                type: NotificationType.CLINIC_MESSAGE,
-                title: 'New Message from Adelaide Knee Clinic',
-                body: dto.body || (dto.imageUrl ? '📷 Sent a picture' : ''),
-                payload: {
-                    conversationId: conversation.id,
-                    messageId: savedMsg.id,
-                    link: '/chat'
-                },
+            // C. Create or Update Notification for Patient
+            let notificationToSave: PatientNotification;
+            
+            const recentPatientNotifs = await manager.createQueryBuilder(PatientNotification, 'notif')
+                .where('notif.patientId = :patientId', { patientId: conversation.patientId })
+                .andWhere('notif.type = :type', { type: NotificationType.CLINIC_MESSAGE })
+                .andWhere('notif.readAt IS NULL')
+                .andWhere("notif.createdAt >= NOW() - INTERVAL '5 minutes'")
+                .getMany();
+
+            const existingNotif = recentPatientNotifs.find(n => {
+                const payloadObj = typeof n.payload === 'string' ? JSON.parse(n.payload) : n.payload;
+                return payloadObj?.conversationId === conversation.id;
             });
-            const savedNotif = await manager.save(notification);
+
+            if (existingNotif) {
+                const payloadObj = typeof existingNotif.payload === 'string' ? JSON.parse(existingNotif.payload) : (existingNotif.payload || {});
+                const currentCount = payloadObj.count || 1;
+                const newCount = currentCount + 1;
+                
+                existingNotif.body = `Adelaide Knee Clinic đã gửi ${newCount} tin nhắn`;
+                existingNotif.payload = {
+                    ...payloadObj,
+                    count: newCount,
+                    messageId: savedMsg.id,
+                };
+                notificationToSave = existingNotif;
+            } else {
+                notificationToSave = manager.create(PatientNotification, {
+                    patientId: conversation.patientId,
+                    type: NotificationType.CLINIC_MESSAGE,
+                    title: 'New Message from Adelaide Knee Clinic',
+                    body: dto.body || (dto.imageUrl ? '📷 Sent a picture' : ''),
+                    payload: {
+                        conversationId: conversation.id,
+                        messageId: savedMsg.id,
+                        link: '/chat',
+                        count: 1
+                    },
+                });
+            }
+            const savedNotif = await manager.save(notificationToSave);
 
             return {
                 savedMessage: savedMsg,
@@ -436,14 +495,18 @@ export class ChatService {
         console.log(`[toggleReaction DEBUG] messageId=${messageId}, originalConvId=${conversationId}, actualConvId=${actualConvId}, senderId=${senderId}, senderType=${senderType}, emoji=${emoji}`);
         console.log(`[toggleReaction DEBUG] existing=${JSON.stringify(existing)}`);
 
+        let action: 'added' | 'removed' | 'updated' = 'added';
+
         if (existing) {
             if (existing.emoji === emoji) {
                 // Same emoji → toggle off
                 await this.reactionRepo.delete(existing.id);
+                action = 'removed';
             } else {
                 // Different emoji → replace
                 existing.emoji = emoji;
                 await this.reactionRepo.save(existing);
+                action = 'updated';
             }
         } else {
             // No existing reaction → create
@@ -455,6 +518,42 @@ export class ChatService {
                 emoji,
             });
             await this.reactionRepo.save(reaction);
+            action = 'added';
+        }
+
+        // Send Notification for React
+        if (action === 'added' || action === 'updated') {
+            const msg = await this.messageRepo.findOne({ where: { id: messageId }, relations: ['conversation', 'conversation.patient'] });
+            if (msg) {
+                if (senderType === ReactionSenderType.PATIENT) {
+                    // Patient reacted -> Notify Staff
+                    const allStaff = await this.dataSource.getRepository(User).find({ select: ['id'] });
+                    const notificationsToSave = allStaff.map(staff => {
+                        return this.dataSource.getRepository(StaffNotification).create({
+                            userId: staff.id,
+                            type: 'patient_message',
+                            title: `Reaction from ${msg.conversation?.patient?.firstName || 'Patient'}`,
+                            body: `${msg.conversation?.patient?.firstName || 'Patient'} reacted ${emoji} to a message.`,
+                            payload: { conversationId: actualConvId, messageId, link: `/messages` },
+                        });
+                    });
+                    const savedNotifs = await this.dataSource.getRepository(StaffNotification).save(notificationsToSave);
+                    if (savedNotifs.length > 0) {
+                        this.staffNotificationService.broadcastPush(savedNotifs).catch(e => console.error(e));
+                    }
+                } else if (senderType === ReactionSenderType.STAFF) {
+                    // Staff reacted -> Notify Patient
+                    const notification = this.dataSource.getRepository(PatientNotification).create({
+                        patientId: msg.conversation.patientId,
+                        type: NotificationType.CLINIC_MESSAGE,
+                        title: 'Reaction from Adelaide Knee Clinic',
+                        body: `Staff reacted ${emoji} to your message.`,
+                        payload: { conversationId: actualConvId, messageId, link: '/chat' },
+                    });
+                    const savedNotif = await this.dataSource.getRepository(PatientNotification).save(notification);
+                    this.notificationsService.sendPush(msg.conversation.patientId, savedNotif).catch(e => console.error(e));
+                }
+            }
         }
 
         // Return updated reactions for this message
@@ -472,20 +571,22 @@ export class ChatService {
         // This must run BEFORE we clear streakActiveToday, otherwise we lose the state needed to decide.
         await this.dataSource.transaction(async (manager) => {
             // 1. For conversations where streakActiveToday is false but streak > 0 → reset to 0 (missed)
-            await manager.update(Conversation, 
-                { streakActiveToday: false }, 
-                { streakCount: 0 }
-            );
+            await manager.createQueryBuilder()
+                .update(Conversation)
+                .set({ streakCount: 0 })
+                .where('streak_active_today = :active', { active: false })
+                .andWhere('streak_count > 0')
+                .execute();
 
             // 2. Now reset all daily flags for the new day
-            await manager.update(Conversation, 
-                {}, 
-                {
+            await manager.createQueryBuilder()
+                .update(Conversation)
+                .set({
                     patientMessagedToday: false,
                     staffMessagedToday: false,
                     streakActiveToday: false,
-                }
-            );
+                })
+                .execute();
         });
 
         this.logger.log('Midnight streak reset completed.');
