@@ -2,44 +2,46 @@ import { IsString, IsEmail, IsNotEmpty, IsNumber, Min, Max, IsBoolean, IsEnum, I
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 
 export class CreateLeadDto {
-    @ApiProperty({ description: 'First name of the lead' })
+    @ApiPropertyOptional({ description: 'First name of the lead' })
+    @IsOptional()
     @IsString()
-    @IsNotEmpty()
-    firstName: string;
+    firstName?: string;
 
-    @ApiProperty({ description: 'Last name of the lead' })
+    @ApiPropertyOptional({ description: 'Last name of the lead' })
+    @IsOptional()
     @IsString()
-    @IsNotEmpty()
-    lastName: string;
+    lastName?: string;
 
     @ApiProperty({ description: 'Email address of the lead' })
     @IsEmail({}, { message: 'Invalid email address' })
     email: string;
 
-    @ApiProperty({ description: 'Mobile number of the lead' })
+    @ApiPropertyOptional({ description: 'Mobile number of the lead' })
+    @IsOptional()
     @IsString()
-    @IsNotEmpty()
-    mobile: string;
+    mobile?: string;
 
-    @ApiProperty({ description: 'Age of the lead', minimum: 1, maximum: 120 })
+    @ApiPropertyOptional({ description: 'Age of the lead', minimum: 1, maximum: 120 })
+    @IsOptional()
     @IsNumber()
     @Min(1)
     @Max(120)
-    age: number;
+    age?: number;
 
-    @ApiProperty({ description: 'Gender of the lead' })
+    @ApiPropertyOptional({ description: 'Gender of the lead' })
+    @IsOptional()
     @IsString()
-    @IsNotEmpty()
-    gender: string;
+    gender?: string;
 
     @ApiPropertyOptional({ description: 'Knee side affected', enum: ['L', 'R', 'B'] })
     @IsOptional()
     @IsEnum(['L', 'R', 'B'], { message: 'Knee side must be L, R, B' })
     kneeSide?: string;
 
-    @ApiProperty({ description: 'Whether consent is accepted' })
+    @ApiPropertyOptional({ description: 'Whether consent is accepted' })
+    @IsOptional()
     @IsBoolean()
-    consentAccepted: boolean;
+    consentAccepted?: boolean;
 
     @ApiPropertyOptional({ description: 'Notification preferences' })
     @IsOptional()

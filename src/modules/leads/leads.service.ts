@@ -1,4 +1,4 @@
-import { Injectable, NotFoundException, Logger } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException, Logger } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { ConfigService } from '@nestjs/config';
@@ -27,18 +27,23 @@ export class LeadsService {
         let savedPatient = await this.patientRepository.findOneBy({ email: dto.email.toLowerCase() });
 
         if (savedPatient) {
-            savedPatient.firstName = dto.firstName;
-            savedPatient.lastName = dto.lastName;
-            savedPatient.mobile = dto.mobile;
-            savedPatient.age = dto.age;
-            savedPatient.gender = dto.gender;
-            savedPatient.kneeSide = dto.kneeSide || null;
-            savedPatient.consentAccepted = dto.consentAccepted;
+            if (dto.firstName) savedPatient.firstName = dto.firstName;
+            if (dto.lastName) savedPatient.lastName = dto.lastName;
+            if (dto.mobile) savedPatient.mobile = dto.mobile;
+            if (dto.age) savedPatient.age = dto.age;
+            if (dto.gender) savedPatient.gender = dto.gender;
+            if (dto.kneeSide !== undefined) savedPatient.kneeSide = dto.kneeSide || null;
+            if (dto.consentAccepted !== undefined) savedPatient.consentAccepted = dto.consentAccepted;
             if (dto.notificationPrefs) {
                 savedPatient.notificationPrefs = dto.notificationPrefs;
             }
             savedPatient = await this.patientRepository.save(savedPatient);
         } else {
+            // New patient requires full details
+            if (!dto.firstName || !dto.lastName || !dto.mobile || !dto.age || !dto.gender) {
+                throw new BadRequestException('No account found for this email address. Please select "New Patient" and fill in all details.');
+            }
+
             // New patient: generate account credentials
             const tempPassword = PatientAuthService.generateTempPassword();
             const passwordHash = await this.patientAuthService.hashPassword(tempPassword);
@@ -51,7 +56,7 @@ export class LeadsService {
                 age: dto.age,
                 gender: dto.gender,
                 kneeSide: dto.kneeSide,
-                consentAccepted: dto.consentAccepted,
+                consentAccepted: dto.consentAccepted ?? true,
                 notificationPrefs: dto.notificationPrefs || null,
                 passwordHash: passwordHash,
                 forcePasswordChange: true,
