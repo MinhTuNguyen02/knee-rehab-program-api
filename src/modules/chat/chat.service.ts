@@ -189,7 +189,7 @@ export class ChatService {
                         payload: {
                             conversationId: conversation.id,
                             messageId: savedMsg.id,
-                            link: `/messages`,
+                            link: `/messages?conversationId=${conversation.id}`,
                             count: 1
                         },
                     });
@@ -534,7 +534,7 @@ export class ChatService {
                             type: 'patient_message',
                             title: `Reaction from ${msg.conversation?.patient?.firstName || 'Patient'}`,
                             body: `${msg.conversation?.patient?.firstName || 'Patient'} reacted ${emoji} to a message.`,
-                            payload: { conversationId: actualConvId, messageId, link: `/messages` },
+                            payload: { conversationId: actualConvId, messageId, link: `/messages?conversationId=${actualConvId}` },
                         });
                     });
                     const savedNotifs = await this.dataSource.getRepository(StaffNotification).save(notificationsToSave);

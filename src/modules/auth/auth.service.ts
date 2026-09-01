@@ -43,10 +43,11 @@ export class AuthService {
         }
 
         const passwordHash = await bcrypt.hash(dto.password, 10);
+        const role = dto.role && ['admin', 'doctor'].includes(dto.role) ? dto.role : 'admin';
         const newUser = this.userRepository.create({
             email: dto.email.toLowerCase(),
             passwordHash,
-            role: 'admin',
+            role,
         });
 
         const savedUser = await this.userRepository.save(newUser);
