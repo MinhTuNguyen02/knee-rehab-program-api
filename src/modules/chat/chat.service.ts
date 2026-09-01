@@ -1,4 +1,4 @@
-import { Injectable, Logger, NotFoundException } from '@nestjs/common';
+import { Injectable, Logger, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
 import { Repository, IsNull, DataSource, In } from 'typeorm';
@@ -11,6 +11,7 @@ import { NotificationType, PatientNotification } from '../patient-notifications/
 import { StaffNotificationsService } from '../staff-notifications/staff-notifications.service';
 import { StaffNotification } from '../staff-notifications/entities/staff-notification.entity';
 import { User } from '../auth/entities/user.entity';
+import { ChatGateway } from './chat.gateway';
 
 @Injectable()
 export class ChatService {
@@ -25,6 +26,8 @@ export class ChatService {
         private readonly notificationsService: PatientNotificationsService,
         private readonly staffNotificationService: StaffNotificationsService,
         private dataSource: DataSource,
+        @Inject(forwardRef(() => ChatGateway))
+        private readonly chatGateway: ChatGateway,
     ) { }
 
     // Retrieve or initialize conversation for a specific patient
@@ -173,8 +176,8 @@ export class ChatService {
                     const payloadObj = typeof existingNotif.payload === 'string' ? JSON.parse(existingNotif.payload) : (existingNotif.payload || {});
                     const currentCount = payloadObj.count || 1;
                     const newCount = currentCount + 1;
-                    
-                    existingNotif.body = `Bệnh nhân ${conversation.patient?.firstName || ''} đã gửi ${newCount} tin nhắn`;
+
+                    existingNotif.body = `Patient ${conversation.patient?.firstName || ''} sent ${newCount} messages`;
                     existingNotif.payload = {
                         ...payloadObj,
                         count: newCount,
@@ -375,7 +378,7 @@ export class ChatService {
 
             // C. Create or Update Notification for Patient
             let notificationToSave: PatientNotification;
-            
+
             const recentPatientNotifs = await manager.createQueryBuilder(PatientNotification, 'notif')
                 .where('notif.patientId = :patientId', { patientId: conversation.patientId })
                 .andWhere('notif.type = :type', { type: NotificationType.CLINIC_MESSAGE })
@@ -392,7 +395,7 @@ export class ChatService {
                 const payloadObj = typeof existingNotif.payload === 'string' ? JSON.parse(existingNotif.payload) : (existingNotif.payload || {});
                 const currentCount = payloadObj.count || 1;
                 const newCount = currentCount + 1;
-                
+
                 existingNotif.body = `Adelaide Knee Clinic đã gửi ${newCount} tin nhắn`;
                 existingNotif.payload = {
                     ...payloadObj,
@@ -590,6 +593,16 @@ export class ChatService {
                 })
                 .execute();
         });
+
+        // Step 3: Broadcast real-time streak updates to all connected clients (patient & staff)
+        try {
+            const allConvs = await this.conversationRepo.find();
+            for (const conv of allConvs) {
+                this.chatGateway.broadcastStreakUpdate(conv.id, conv.streakCount, conv.streakActiveToday);
+            }
+        } catch (err: any) {
+            this.logger.error(`Error broadcasting streak resets: ${err.message}`);
+        }
 
         this.logger.log('Midnight streak reset completed.');
     }

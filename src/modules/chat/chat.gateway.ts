@@ -247,11 +247,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
             // Broadcast streak update to the whole conversation room (both sides)
             const freshConv = await this.chatService.getConversationById(conversationId);
             if (freshConv) {
-                this.server.to(`conversation:${conversationId}`).emit('streak:update', {
-                    conversationId,
-                    streakCount: freshConv.streakCount,
-                    streakActiveToday: freshConv.streakActiveToday,
-                });
+                this.broadcastStreakUpdate(conversationId, freshConv.streakCount, freshConv.streakActiveToday);
             }
 
             // Update inbox for all staff
@@ -371,5 +367,18 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
         } catch (error) {
             this.logger.error(`[reaction:toggle] error: ${error.message}`);
         }
+    }
+
+    broadcastStreakUpdate(conversationId: string, streakCount: number, streakActiveToday: boolean) {
+        this.server.to(`conversation:${conversationId}`).emit('streak:update', {
+            conversationId,
+            streakCount,
+            streakActiveToday,
+        });
+        this.server.to('staff_inbox').emit('streak:update', {
+            conversationId,
+            streakCount,
+            streakActiveToday,
+        });
     }
 }
