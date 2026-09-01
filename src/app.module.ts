@@ -15,6 +15,7 @@ import { PatientNotificationsModule } from './modules/patient-notifications/pati
 import { FirebaseModule } from './modules/firebase/firebase.module';
 import { ChatModule } from './modules/chat/chat.module';
 import { StaffNotificationsModule } from './modules/staff-notifications/staff-notifications.module'
+import { StickersModule } from './modules/stickers/stickers.module';
 import { ScheduleModule } from '@nestjs/schedule';
 
 @Module({
@@ -70,6 +71,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     FirebaseModule,
     PatientNotificationsModule,
     StaffNotificationsModule,
+    StickersModule,
     ChatModule,
   ],
   controllers: [AppController],

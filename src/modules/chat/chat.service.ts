@@ -124,6 +124,7 @@ export class ChatService {
                 body: dto.body || '',
                 replyToMessageId: dto.replyToMessageId,
                 imageUrl: dto.imageUrl,
+                stickerUrl: dto.stickerUrl,
             });
             const savedMsg = await manager.save(message);
 
@@ -185,7 +186,7 @@ export class ChatService {
                         userId: staff.id,
                         type: 'patient_message',
                         title: `New message from ${conversation.patient?.firstName || 'Patient'}`,
-                        body: dto.body || (dto.imageUrl ? '📷 Sent a photo' : ''),
+                        body: dto.body || (dto.imageUrl ? '📷 Sent a photo' : (dto.stickerUrl ? '🎨 Sent a sticker' : '')),
                         payload: {
                             conversationId: conversation.id,
                             messageId: savedMsg.id,
@@ -346,6 +347,7 @@ export class ChatService {
                 body: dto.body || '',
                 replyToMessageId: dto.replyToMessageId,
                 imageUrl: dto.imageUrl,
+                stickerUrl: dto.stickerUrl,
             });
             const savedMsg = await manager.save(message);
 
@@ -403,7 +405,7 @@ export class ChatService {
                     patientId: conversation.patientId,
                     type: NotificationType.CLINIC_MESSAGE,
                     title: 'New Message from Adelaide Knee Clinic',
-                    body: dto.body || (dto.imageUrl ? '📷 Sent a picture' : ''),
+                    body: dto.body || (dto.imageUrl ? '📷 Sent a picture' : (dto.stickerUrl ? '🎨 Sent a sticker' : '')),
                     payload: {
                         conversationId: conversation.id,
                         messageId: savedMsg.id,

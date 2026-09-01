@@ -56,4 +56,7 @@ export class Message {
 
     @Column({ name: 'image_url', type: 'text', nullable: true })
     imageUrl?: string;
+
+    @Column({ name: 'sticker_url', type: 'text', nullable: true })
+    stickerUrl?: string;
 }

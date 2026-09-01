@@ -44,4 +44,8 @@ export class CreateMessageDto {
     @IsOptional()
     @IsString()
     imageUrl?: string;
+
+    @IsOptional()
+    @IsString()
+    stickerUrl?: string;
 }
