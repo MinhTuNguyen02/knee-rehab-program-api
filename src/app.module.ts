@@ -17,6 +17,7 @@ import { ChatModule } from './modules/chat/chat.module';
 import { StaffNotificationsModule } from './modules/staff-notifications/staff-notifications.module'
 import { StickersModule } from './modules/stickers/stickers.module';
 import { ScheduleModule } from '@nestjs/schedule';
+import { StaffAccountsModule } from './modules/staff-accounts/staff-accounts.module';
 
 @Module({
   imports: [
@@ -73,6 +74,7 @@ import { ScheduleModule } from '@nestjs/schedule';
     StaffNotificationsModule,
     StickersModule,
     ChatModule,
+    StaffAccountsModule,
   ],
   controllers: [AppController],
   providers: [AppService],

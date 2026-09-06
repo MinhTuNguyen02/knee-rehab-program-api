@@ -25,6 +25,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
         if (!user) {
             throw new UnauthorizedException('Admin user not found');
         }
+        if (user.isActive === false) {
+            throw new UnauthorizedException('Account has been deactivated');
+        }
         return { id: user.id, email: user.email, role: user.role };
     }
 }
