@@ -11,7 +11,7 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { Repository } from 'typeorm';
 import { Patient } from '../assessments/entities/patient.entity';
 import { User } from '../auth/entities/user.entity';
-import { Logger } from '@nestjs/common';
+import { Logger, Inject, forwardRef } from '@nestjs/common';
 import { ReactionSenderType } from './entities/message-reaction.entity';
 
 @WebSocketGateway({
@@ -31,6 +31,7 @@ export class ChatGateway implements OnGatewayConnection, OnGatewayDisconnect {
 
     constructor(
         private readonly jwtService: JwtService,
+        @Inject(forwardRef(() => ChatService))
         private readonly chatService: ChatService,
         @InjectRepository(Patient)
         private patientRepository: Repository<Patient>,
