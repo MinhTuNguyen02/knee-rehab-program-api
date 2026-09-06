@@ -23,7 +23,7 @@ export class ChatDebugController {
 
 @ApiTags('staff/chat')
 @Controller('staff/chat')
-@Roles('admin')
+@Roles('admin', 'doctor')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class StaffChatController {

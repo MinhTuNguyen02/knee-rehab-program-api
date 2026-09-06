@@ -19,7 +19,7 @@ export class AssessmentsController {
     }
 
     @Get()
-    @Roles('admin')
+    @Roles('admin', 'doctor')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get all assessments' })
@@ -43,7 +43,7 @@ export class AssessmentsController {
     }
 
     @Get(':id')
-    @Roles('admin')
+    @Roles('admin', 'doctor')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get an assessment by ID' })
@@ -53,7 +53,7 @@ export class AssessmentsController {
     }
 
     @Put(':id')
-    @Roles('admin')
+    @Roles('admin', 'doctor')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Update an assessment by ID' })

@@ -11,7 +11,7 @@ export class DashboardController {
   constructor(private readonly dashboardService: DashboardService) { }
 
   @Get('stats')
-  @Roles('admin')
+  @Roles('admin', 'doctor')
   @UseGuards(JwtAuthGuard, RolesGuard)
   @ApiBearerAuth()
   @ApiOperation({ summary: 'Get dashboard statistics' })

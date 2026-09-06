@@ -53,7 +53,7 @@ export class ChatUploadController {
 // ─── Staff upload ─────────────────────────────────────────────
 @ApiTags('staff/chat')
 @Controller('staff/chat')
-@Roles('admin')
+@Roles('admin', 'doctor')
 @UseGuards(JwtAuthGuard, RolesGuard)
 @ApiBearerAuth()
 export class StaffChatUploadController {

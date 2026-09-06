@@ -19,7 +19,7 @@ export class LeadsController {
     }
 
     @Get()
-    @Roles('admin')
+    @Roles('admin', 'doctor')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get all leads' })
@@ -43,7 +43,7 @@ export class LeadsController {
     }
 
     @Get(':id')
-    @Roles('admin')
+    @Roles('admin', 'doctor')
     @UseGuards(JwtAuthGuard, RolesGuard)
     @ApiBearerAuth()
     @ApiOperation({ summary: 'Get a lead by ID' })
