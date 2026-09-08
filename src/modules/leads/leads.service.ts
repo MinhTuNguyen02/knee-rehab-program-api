@@ -7,6 +7,8 @@ import { Patient } from '../assessments/entities/patient.entity';
 import { Assessment } from '../assessments/entities/assessment.entity';
 import { CreateLeadDto } from './dto/create-lead.dto';
 import { PatientAuthService } from '../patient-auth/patient-auth.service';
+import { PatientNotificationsService } from '../patient-notifications/patient-notifications.service';
+import { NotificationType } from '../patient-notifications/entities/patient-notification.entity';
 
 @Injectable()
 export class LeadsService {
@@ -20,6 +22,7 @@ export class LeadsService {
         private patientAuthService: PatientAuthService,
         private mailerService: MailerService,
         private configService: ConfigService,
+        private patientNotificationsService: PatientNotificationsService,
     ) { }
 
     // 1. POST /leads
@@ -90,6 +93,19 @@ export class LeadsService {
                 });
             } catch (error) {
                 this.logger.error('Failed to send welcome email', error);
+            }
+
+            // Create in-app welcome notification
+            try {
+                await this.patientNotificationsService.createAndSendNotification(
+                    savedPatient.id,
+                    NotificationType.WELCOME,
+                    'Welcome to KRPS!',
+                    `Hi ${savedPatient.firstName}, welcome to the Knee Rehab Program. Track your recovery journey and reach out to our clinic staff anytime!`,
+                    { type: 'welcome' },
+                );
+            } catch (notifError) {
+                this.logger.error('Failed to create welcome notification', notifError);
             }
         }
 

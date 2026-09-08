@@ -6,12 +6,14 @@ import { Patient } from '../assessments/entities/patient.entity';
 import { Assessment } from '../assessments/entities/assessment.entity';
 import { AuthModule } from '../auth/auth.module';
 import { PatientAuthModule } from '../patient-auth/patient-auth.module';
+import { PatientNotificationsModule } from '../patient-notifications/patient-notifications.module';
 
 @Module({
   imports: [
     TypeOrmModule.forFeature([Patient, Assessment]),
     AuthModule,
     PatientAuthModule,
+    PatientNotificationsModule,
   ],
   controllers: [LeadsController],
   providers: [LeadsService],
