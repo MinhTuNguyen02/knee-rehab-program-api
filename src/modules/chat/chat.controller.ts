@@ -28,6 +28,14 @@ export class ChatController {
         return this.chatService.getMessages(req.user.id, query);
     }
 
+    @Get('media')
+    @ApiOperation({ summary: 'Get all media/images for the current patient conversation' })
+    @ApiResponse({ status: 200, description: 'Returns list of media messages.' })
+    async getMedia(@Req() req: any, @Query() query: { limit?: number; before?: string }) {
+        const conversation = await this.chatService.getOrCreateConversation(req.user.id);
+        return this.chatService.getConversationMedia(conversation.id, query);
+    }
+
     @Post('messages')
     @ApiOperation({ summary: 'Send a new message' })
     @ApiResponse({ status: 201, description: 'The message has been successfully sent.' })

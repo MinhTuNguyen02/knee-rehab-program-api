@@ -1,7 +1,7 @@
 import { Injectable, Logger, NotFoundException, Inject, forwardRef } from '@nestjs/common';
 import { Cron, CronExpression } from '@nestjs/schedule';
 import { InjectRepository } from '@nestjs/typeorm';
-import { Repository, IsNull, DataSource, In } from 'typeorm';
+import { Repository, IsNull, DataSource, In, Not } from 'typeorm';
 import { Conversation } from './entities/conversations.entity';
 import { Message, SenderType } from './entities/messages.entity';
 import { MessageReaction, ReactionSenderType } from './entities/message-reaction.entity';
@@ -322,6 +322,39 @@ export class ChatService {
                 hasMore,
                 limit,
             },
+        };
+    }
+
+    // Get media/images for a conversation (excluding stickers, with pagination)
+    async getConversationMedia(conversationId: string, query?: { limit?: number; before?: string }) {
+        const conversation = await this.conversationRepo.findOne({ where: { id: conversationId } });
+        if (!conversation) {
+            throw new NotFoundException('Conversation not found');
+        }
+
+        const limit = query?.limit ? Math.min(Number(query.limit), 100) : 50;
+        const qb = this.messageRepo.createQueryBuilder('message')
+            .where('message.conversation_id = :conversationId', { conversationId })
+            .andWhere('message.image_url IS NOT NULL')
+            .orderBy('message.sent_at', 'DESC')
+            .take(limit + 1);
+
+        if (query?.before) {
+            qb.andWhere('message.sent_at < :before', { before: new Date(query.before) });
+        }
+
+        const messages = await qb.getMany();
+        const hasMore = messages.length > limit;
+        if (hasMore) {
+            messages.pop();
+        }
+
+        return {
+            data: messages,
+            meta: {
+                hasMore,
+                limit,
+            }
         };
     }
 

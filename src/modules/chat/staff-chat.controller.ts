@@ -53,6 +53,13 @@ export class StaffChatController {
         return this.chatService.getMessagesForStaff(conversationId, query);
     }
 
+    @Get('conversations/:id/media')
+    @ApiOperation({ summary: 'Get all media/images for a conversation' })
+    @ApiResponse({ status: 200, description: 'Returns list of media messages.' })
+    getMedia(@Param('id') conversationId: string, @Query() query: { limit?: number; before?: string }) {
+        return this.chatService.getConversationMedia(conversationId, query);
+    }
+
     @Post('conversations/:id/messages')
     @ApiOperation({ summary: 'Send a reply message as staff' })
     @ApiResponse({ status: 201, description: 'Message sent successfully.' })
